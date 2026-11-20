@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transcal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Layout: menú lateral fijo; en Análisis, pasos numerados a la izquierda y resultados fijos a la derecha. Tema único oscuro, señalización industrial. */
+  --bg:#17181b; --panel:#212327; --panel2:#2a2d32; --line:#383b41; --ink:#eeece6; --muted:#a3a29b;
+  --yel:#ffc629; --yel-ink:#1a1608; --yel-soft:rgba(255,198,41,.12);
+  --cold:#8cc4f0; --hot:#ff8a3d; --ok:#7fd49a; --bad:#ff7b6b;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+.card > *,.steps > *,.out > *{flex:none}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--body)}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance;letter-spacing:.02em}
+h2{font-size:26px;font-weight:600}
+h3{font-size:18px;font-weight:600}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono)}
+input,select,textarea,button{font:inherit;color:inherit}
+
+/* ---------- estructura ---------- */
+.app{display:grid;grid-template-columns:220px 1fr;min-height:100%;background:linear-gradient(90deg,#111214 220px,var(--bg) 220px)}
+aside.side{background:#111214;border-right:1px solid var(--line);padding:18px 12px;display:flex;flex-direction:column;gap:22px;position:sticky;top:0;height:100vh}
+.logo{display:flex;align-items:center;gap:10px;padding:0 8px}
+.logo .mark{width:34px;height:34px;border-radius:6px;background:repeating-linear-gradient(-45deg,var(--yel) 0 6px,#111214 6px 12px);border:2px solid var(--yel)}
+.logo b{font-family:var(--display);font-size:28px;font-weight:700;letter-spacing:.04em;line-height:1}
+.logo small{display:block;color:var(--muted);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+nav.menu{display:flex;flex-direction:column;gap:4px}
+nav.menu a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:6px;color:var(--muted);text-decoration:none;font-weight:500;border-left:3px solid transparent}
+nav.menu a svg{width:18px;height:18px;flex:none}
+nav.menu a:hover{background:var(--panel);color:var(--ink)}
+nav.menu a[aria-current="page"]{background:var(--yel-soft);color:var(--yel);border-left-color:var(--yel);border-radius:0 6px 6px 0}
+.side .foot{margin-top:auto;color:var(--muted);font-size:11.5px;padding:0 8px;line-height:1.4}
+main{padding:22px 26px 48px;min-width:0}
+@media (max-width:860px){
+  .app{grid-template-columns:minmax(0,1fr);background:var(--bg)}
+  aside.side{position:sticky;top:0;height:auto;flex-direction:row;align-items:center;padding:10px 12px;gap:12px;z-index:10;overflow-x:auto}
+  .logo small,.side .foot,.logo b{display:none}
+  nav.menu{flex:1;min-width:0;overflow-x:auto}
+  nav.menu a{padding:9px 9px}
+  nav.menu{flex-direction:row}
+  nav.menu a{white-space:nowrap;border-left:0;border-bottom:3px solid transparent;border-radius:6px 6px 0 0}
+  nav.menu a[aria-current="page"]{border-bottom-color:var(--yel);border-radius:6px 6px 0 0}
+  nav.menu a span{display:none}
+  main{padding:16px}
+  .app > *{min-width:0}
+  .tile{padding:12px}
+  .tile .v{font-size:30px}
+  .tile .v small{font-size:16px}
+  .tip::after{max-width:220px}
+}
+.vhead{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.vhead p{margin:4px 0 0;color:var(--muted);max-width:70ch}
+section.view{display:none}
+section.view.on{display:block}
+
+/* ---------- componentes ---------- */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.step{display:flex;align-items:center;gap:12px}
+.step .n{width:30px;height:30px;border-radius:50%;background:var(--yel);color:var(--yel-ink);font-family:var(--display);font-weight:700;font-size:18px;display:grid;place-items:center;flex:none}
+.step p{margin:0;color:var(--muted);font-size:13px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.f{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1 1 130px}
+.f label,.lbl{font-size:12.5px;color:var(--muted);font-weight:500;display:flex;align-items:center;gap:6px}
+input[type=text],input[type=number],input[type=search],select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%;min-width:0;color:var(--ink)}
+input:disabled{color:var(--yel);border-style:dashed;background:transparent}
+textarea{font-family:var(--mono);font-size:13px;resize:vertical}
+:focus-visible{outline:2px solid var(--yel);outline-offset:2px}
+input:focus,select:focus,textarea:focus{border-color:var(--yel);outline:none}
+input[type=file]{font-size:12.5px;color:var(--muted);max-width:100%}
+input[type=file]::file-selector-button{background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:6px 10px;margin-right:8px;cursor:pointer}
+button{cursor:pointer;border:1px solid var(--line);background:var(--panel2);border-radius:6px;padding:8px 13px;font-weight:500;color:var(--ink)}
+button:hover{border-color:var(--muted)}
+button.primary{background:var(--yel);border-color:var(--yel);color:var(--yel-ink);font-weight:600}
+button.primary:hover{filter:brightness(1.07)}
+button.icon{padding:5px 7px;background:transparent;border-color:transparent;color:var(--muted);line-height:0}
+button.icon:hover{color:var(--ink);background:var(--panel2)}
+button.icon.del:hover{color:var(--bad)}
+button.icon svg{width:16px;height:16px}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.hint{color:var(--muted);font-size:12.5px;margin:0}
+.err{color:var(--bad);font-weight:500;background:rgba(255,123,107,.08);border:1px solid rgba(255,123,107,.35);border-radius:8px;padding:10px 12px}
+
+/* ayuda "?" */
+.tip{position:relative;display:inline-grid;place-items:center;width:17px;height:17px;border-radius:50%;border:1px solid var(--muted);color:var(--muted);font-size:11px;font-weight:600;cursor:help;flex:none}
+.tip:hover,.tip:focus{border-color:var(--yel);color:var(--yel)}
+.tip::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:270px;background:#0c0d0f;color:var(--ink);border:1px solid var(--yel);border-radius:8px;padding:9px 11px;font-size:12.5px;font-weight:400;line-height:1.45;text-align:left;white-space:normal;opacity:0;pointer-events:none;transition:opacity .15s;z-index:30}
+.tip::after{display:none}
+.tip:hover::after,.tip:focus::after{opacity:1;display:block}
+
+/* tarjetas de opción (modo y geometría) */
+.opts{display:grid;gap:10px}
+.opts.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.opts.five{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media (max-width:1250px){.opts.five{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:620px){.opts.three,.opts.five{grid-template-columns:1fr 1fr}}
+.opt{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;padding:12px;background:var(--bg);border:1.5px solid var(--line);border-radius:8px;min-width:0}
+.opt b{font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:.02em}
+.opt span{font-size:12px;color:var(--muted);font-weight:400;line-height:1.35}
+.opt svg{width:46px;height:34px;color:var(--muted)}
+.opt:hover{border-color:var(--muted)}
+.opt[aria-pressed="true"]{border-color:var(--yel);background:var(--yel-soft)}
+.opt[aria-pressed="true"] b,.opt[aria-pressed="true"] svg{color:var(--yel)}
+.opts.five .opt{align-items:center;text-align:center}
+.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{border:0;border-radius:0;flex:1;padding:8px;background:var(--bg);color:var(--muted)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--yel);color:var(--yel-ink);font-weight:600}
+
+/* análisis */
+.ana{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:20px;align-items:start}
+.ana .steps{display:flex;flex-direction:column;gap:16px}
+.ana .out{position:sticky;top:16px;display:flex;flex-direction:column;gap:16px}
+@media (max-width:1150px){.ana{grid-template-columns:minmax(0,1fr)}.ana .out{position:static}}
+.casebar{display:grid;grid-template-columns:2fr 1.2fr 1.5fr;gap:12px;align-items:end}
+@media (max-width:700px){.casebar{grid-template-columns:1fr}}
+.strip{display:flex;height:54px;border-radius:6px;overflow:hidden;border:1px solid var(--line);background:var(--bg)}
+.strip div{display:flex;align-items:center;justify-content:center;min-width:22px;font-size:11px;font-weight:600;color:#17181b;border-right:2px solid var(--bg);overflow:hidden;white-space:nowrap}
+.strip div:last-child{border-right:0}
+.stripcap{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-top:-8px}
+.stripcap b{color:var(--cold);font-weight:600}.stripcap b.h{color:var(--hot)}
+.lay{display:grid;grid-template-columns:26px minmax(0,1fr) 96px auto;gap:8px;align-items:center;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.lay.unk{border-color:var(--yel);background:var(--yel-soft)}
+.lay .chip{width:26px;height:26px;border-radius:5px;display:grid;place-items:center;font-weight:700;font-family:var(--display);font-size:15px;color:#17181b}
+.lay .meta{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lay .acts{display:flex;gap:0}
+.lays{display:flex;flex-direction:column;gap:8px}
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tile{border-radius:10px;padding:14px 16px;background:var(--panel2);border:1px solid var(--line);position:relative;overflow:hidden}
+.tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--c,var(--yel))}
+.tile .k{font-size:12.5px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.tile .v{font-family:var(--display);font-size:40px;font-weight:700;line-height:1.05;color:var(--c,var(--yel));font-variant-numeric:tabular-nums}
+.tile .v small{font-size:20px;font-weight:600;margin-left:3px}
+.tile .u{font-size:12px;color:var(--muted)}
+.outhead{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.outhead .geo{font-size:12.5px;color:var(--muted)}
+.badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;background:var(--panel2);border:1px solid var(--line)}
+.badge.turb{color:var(--hot);border-color:rgba(255,138,61,.4)}
+.badge.lam{color:var(--ok);border-color:rgba(127,212,154,.4)}
+/* seguridad */
+.safe{display:flex;gap:12px;align-items:flex-start;border-radius:8px;padding:12px 14px;border:1px solid var(--line);background:var(--panel2)}
+.safe .dot{width:12px;height:12px;border-radius:50%;margin-top:5px;flex:none;background:var(--muted)}
+.safe b{font-family:var(--display);font-size:19px;font-weight:600;letter-spacing:.02em}
+.safe p{margin:2px 0 0;color:var(--muted);font-size:12.5px}
+.safe.ok{border-color:rgba(127,212,154,.45)} .safe.ok .dot{background:var(--ok)} .safe.ok b{color:var(--ok)}
+.safe.warn{border-color:rgba(255,198,41,.5)} .safe.warn .dot{background:var(--yel)} .safe.warn b{color:var(--yel)}
+.safe.bad{border-color:rgba(255,123,107,.5)} .safe.bad .dot{background:var(--bad)} .safe.bad b{color:var(--bad)}
+.tiles.four{grid-template-columns:repeat(2,minmax(0,1fr))}
+.tile.sm .v{font-size:30px}
+/* comparar */
+.cmpcols{display:grid;gap:14px;overflow-x:auto;padding-bottom:4px}
+.cmpcol{min-width:270px}
+.cmpcol .hd{display:flex;align-items:center;gap:8px}
+.cmpcol .hd input{font-family:var(--display);font-size:19px;font-weight:600;background:transparent;border-color:transparent;padding:4px 6px}
+.cmpcol .hd input:hover{border-color:var(--line)}
+.cmpcol.best{border-color:var(--yel);box-shadow:0 0 0 1px var(--yel) inset}
+.mini{display:grid;grid-template-columns:minmax(0,1fr) 78px auto;gap:6px;align-items:center}
+.mini input{padding:6px 8px;font-size:13px}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid var(--line)}
+.pill.ok{color:var(--ok);border-color:rgba(127,212,154,.45)} .pill.warn{color:var(--yel);border-color:rgba(255,198,41,.5)} .pill.bad{color:var(--bad);border-color:rgba(255,123,107,.5)}
+.cmpt td.win{color:var(--yel);font-weight:600}
+.cmpt td.d{font-size:12px;color:var(--muted)} .cmpt td.d.good{color:var(--ok)} .cmpt td.d.worse{color:var(--bad)}
+.cmpt th.ohd{color:var(--ink);font-family:var(--display);font-size:16px;font-weight:600;text-align:right}
+.empty{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:26px}
+details.more{border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+details.more>summary{cursor:pointer;padding:14px 18px;font-family:var(--display);font-size:18px;font-weight:600;list-style:none;display:flex;justify-content:space-between;align-items:center}
+details.more>summary::-webkit-details-marker{display:none}
+details.more>summary::after{content:"+";color:var(--yel);font-size:22px}
+details.more[open]>summary::after{content:"–"}
+details.more .body{padding:0 18px 18px;display:flex;flex-direction:column;gap:14px}
+
+/* tablas */
+table{border-collapse:collapse;width:100%}
+th,td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{font-size:12px;color:var(--muted);font-weight:500;white-space:nowrap}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.tblwrap{overflow-x:auto}
+.res td:first-child{color:var(--muted)}
+.res td:first-child .lbl{display:inline-flex}
+.res td.n{font-family:var(--mono);color:var(--ink)}
+.res td.u{color:var(--muted);font-size:12px;white-space:nowrap}
+tr.hl td{background:var(--yel-soft)}
+
+/* gráficas */
+.chart{width:100%;height:auto;display:block}
+.chart text{fill:var(--muted);font:11px var(--body)}
+.chart .ttl{fill:var(--ink);font-weight:600;font-size:12px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:4px;margin-right:6px;vertical-align:middle;border-radius:2px}
+.two{display:grid;grid-template-columns:minmax(300px,420px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:980px){.two{grid-template-columns:minmax(0,1fr)}}
+
+/* materiales */
+.mlist{max-height:540px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.mlist table{font-size:13px}
+.mlist tr{cursor:pointer}
+.mlist tbody tr:hover td{background:var(--panel2)}
+.mlist tr.sel td{background:var(--yel-soft);color:var(--yel)}
+.mlist th{position:sticky;top:0;background:var(--panel);z-index:1}
+
+/* flama */
+.flame{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.flame .big{font-family:var(--display);font-size:68px;font-weight:700;line-height:.95;color:var(--yel)}
+.flame .bar{height:10px;width:100%;border-radius:5px;background:linear-gradient(90deg,#4a4d52,var(--yel),var(--hot));position:relative;margin-top:10px}
+.flame .bar i{position:absolute;top:-5px;width:4px;height:20px;background:var(--ink);border-radius:2px}
+.gasgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:620px){.gasgrid{grid-template-columns:1fr 1fr}}
+.sum{font-size:12.5px;color:var(--muted)}
+.sum b{color:var(--ok)} .sum b.bad{color:var(--bad)}
+
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--yel);color:var(--yel-ink);font-weight:600;padding:9px 16px;border-radius:6px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
+.toast.on{opacity:1}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="side">
+  <div class="logo"><div class="mark" aria-hidden="true"></div><div><b>TRANSCAL</b><small>Transferencia de calor</small></div></div>
+  <nav class="menu" id="tabs" aria-label="Módulos">
+    <a href="#analisis"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="4" height="16" rx="1"/><rect x="9" y="4" width="5" height="16" rx="1"/><rect x="16" y="4" width="5" height="16" rx="1"/></svg><span>Análisis térmico</span></a>
+    <a href="#comparar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="16" rx="1"/><path d="M10 12h4"/></svg><span>Comparar opciones</span></a>
+    <a href="#graficas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 4v16h16"/><path d="M7 15l4-5 3 3 5-7"/></svg><span>Gráficas</span></a>
+    <a href="#materiales"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg><span>Materiales</span></a>
+    <a href="#flama"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3c1 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-4 2-7 2 1 3 3 3 5 1-2 1-6 1-9z"/></svg><span>Temperatura de flama</span></a>
+    <a href="#ajuste"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="6" cy="16" r="1.4"/><circle cx="10" cy="11" r="1.4"/><circle cx="15" cy="9" r="1.4"/><circle cx="19" cy="5" r="1.4"/><path d="M4 19C9 13 14 8 21 4"/></svg><span>Ajuste de curvas</span></a>
+    <a href="#conversiones"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 8h14l-3-3M20 16H6l3 3"/></svg><span>Conversiones</span></a>
+  </nav>
+  <div class="foot">Basado en Transcal V3.0 (1994). Resultados verificados contra el programa original.</div>
+</aside>
+
+<main>
+<!-- ================= ANÁLISIS ================= -->
+<section class="view" id="v-analisis">
+  <div class="vhead"><div><h2>Análisis térmico</h2><p>Calcula cuánto calor se escapa por una pared o tubería formada por varias capas de material, y a qué temperatura queda cada capa.</p></div></div>
+  <div class="ana">
+  <div class="steps">
+    <div class="card">
+      <div class="casebar">
+        <div class="f"><label for="title">Nombre del caso</label><input type="text" id="title"></div>
+        <div class="f"><label for="ex">Abrir ejemplo</label><select id="ex"><option value="">Elegir…</option></select></div>
+        <div class="f"><label for="casfile">Abrir archivo .CAS</label><input type="file" id="casfile"></div>
+      </div>
+      <div class="row">
+        <div class="f" style="flex:2 1 200px"><label for="mycases">Mis casos guardados en este navegador</label><select id="mycases"><option value="">Elegir…</option></select></div>
+        <div class="toolbar"><button type="button" id="saveLocal">Guardar caso</button><button type="button" id="delLocal">Borrar</button></div>
+      </div>
+      <div class="toolbar"><button type="button" class="primary" id="report">Descargar reporte</button><button type="button" id="toCompare">Comparar opciones</button><button type="button" id="saveCas">Guardar .CAS</button><button type="button" id="copyCas">Copiar .CAS</button></div>
+      <p class="hint">El reporte se abre en el navegador y se imprime o guarda como PDF. El .CAS se descarga como .CAS.txt: quítale el .txt para abrirlo en el programa viejo.</p>
+    </div>
+
+    <div class="card">
+      <div class="step"><div class="n">1</div><div><h3>¿Qué quieres calcular?</h3><p>Elige qué temperatura conoces y qué quieres averiguar.</p></div></div>
+      <div class="opts three" id="mode">
+        <button type="button" class="opt" data-v="2"><b>Temperatura exterior</b><span>Conozco la cara caliente (adentro). ¿Qué tan caliente queda afuera?</span></button>
+        <button type="button" class="opt" data-v="1"><b>Temperatura interior</b><span>Conozco la cara fría (afuera). ¿A cuánto está adentro?</span></button>
+        <button type="button" class="opt" data-v="3"><b>Espesor de aislante</b><span>Conozco ambas temperaturas. ¿Cuánto material necesito?</span></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="step"><div class="n">2</div><div><h3>Forma del equipo</h3><p>Define cómo se mueve el aire alrededor y qué medida importa.</p></div></div>
+      <div class="opts five" id="geom">
+        <button type="button" class="opt" data-v="1"><svg viewBox="0 0 46 34" fill="none" stroke="currentColor" stroke-width="2"><rect x="18" y="3" width="10" height="28" rx="1"/><path d="M8 28V8M38 28V8" stroke-dasharray="2 3"/></svg><b>Pared vertical</b></button>
+        <button type="button" class="opt" data-v="2"><svg viewBox="0 0 46 34" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="20" width="36" height="8" rx="1"/><path d="M13 16V6M23 16V4M33 16V6" stroke-dasharray="2 3"/></svg><b>Techo</b></button>
+        <button type="button" class="opt" data-v="3"><svg viewBox="0 0 46 34" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="6" width="36" height="8" rx="1"/><path d="M13 18v10M23 18v12M33 18v10" stroke-dasharray="2 3"/></svg><b>Piso elevado</b></button>
+        <button type="button" class="opt" data-v="4"><svg viewBox="0 0 46 34" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="9" cy="17" rx="5" ry="10"/><path d="M9 7h28M9 27h28"/><path d="M37 7a5 10 0 0 1 0 20"/></svg><b>Cilindro horizontal</b></button>
+        <button type="button" class="opt" data-v="5"><svg viewBox="0 0 46 34" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="23" cy="6" rx="10" ry="3.5"/><path d="M13 6v22M33 6v22"/><path d="M13 28a10 3.5 0 0 0 20 0"/></svg><b>Cilindro vertical</b></button>
+      </div>
+      <div class="row">
+        <div class="f" id="fL"><label for="Lm"><span id="Llbl">Altura de la pared [m]</span><span class="tip" tabindex="0" id="Ltip" data-tip="Para paredes es la altura; para techos y pisos, el largo. Para cilindros es el diámetro exterior. El aire caliente sube a lo largo de esta medida, por eso cambia la convección.">?</span></label><input type="number" id="Lm" step="any"></div>
+      </div>
+      <div id="fDir" class="f">
+        <span class="lbl">Dirección del crecimiento del aislante <span class="tip" tabindex="0" data-tip="Hacia afuera: el tubo queda fijo y el aislante crece hacia el exterior (lo normal). Hacia el centro: el diámetro exterior queda fijo y el aislante ocupa espacio hacia adentro.">?</span></span>
+        <div class="seg" id="dir"><button type="button" data-v="0">Hacia afuera</button><button type="button" data-v="1">Hacia el centro</button></div>
+        <div class="f" style="margin-top:8px"><label for="Dm" id="Dlbl">Diámetro donde inicia la capa desconocida [m]</label><input type="number" id="Dm" step="any"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="step"><div class="n">3</div><div><h3>Condiciones</h3><p>El aire que rodea al equipo y las temperaturas conocidas.</p></div></div>
+      <div class="row">
+        <div class="f"><label for="TaC">Temp. ambiente [°C]<span class="tip" tabindex="0" data-tip="Temperatura del aire alrededor del equipo, lejos de la superficie.">?</span></label><input type="number" id="TaC" step="any"></div>
+        <div class="f"><label for="V">Viento [MPH]<span class="tip" tabindex="0" data-tip="Velocidad del aire en millas por hora. Con 0 se calcula convección natural; con viento, convección forzada (el aire se lleva más calor).">?</span></label><input type="number" id="V" step="any" min="0"></div>
+        <div class="f"><label for="eps">Emisividad<span class="tip" tabindex="0" data-tip="Qué tanto calor irradia la superficie exterior, de 0 a 1. Aluminio brillante ≈ 0.05; lámina galvanizada ≈ 0.3; pintura o acero oxidado ≈ 0.9.">?</span></label><input type="number" id="eps" step="any" min="0" max="1"></div>
+      </div>
+      <div class="row">
+        <div class="f"><label for="TCFC"><span id="TCFlbl">Cara fría [°C]</span><span class="tip" tabindex="0" data-tip="Temperatura de la superficie exterior, la que está en contacto con el aire y la que tocaría una persona.">?</span></label><input type="number" id="TCFC" step="any"></div>
+        <div class="f"><label for="TCCC"><span id="TCClbl">Cara caliente [°C]</span><span class="tip" tabindex="0" data-tip="Temperatura de la superficie interior: el lado del horno, del vapor o del proceso.">?</span></label><input type="number" id="TCCC" step="any"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="step"><div class="n">4</div><div><h3>Capas de material</h3><p>De la cara fría (afuera) a la caliente (adentro). Máximo 10.</p></div></div>
+      <div class="strip" id="strip" aria-hidden="true"></div>
+      <div class="stripcap"><b>← Cara fría (aire)</b><b class="h">Cara caliente →</b></div>
+      <div class="lays" id="layers"></div>
+      <div class="toolbar"><button type="button" id="addLayer">+ Agregar capa</button><span class="hint" id="layhint"></span></div>
+      <datalist id="matlist"></datalist>
+    </div>
+  </div>
+
+  <div class="out" id="results">
+    <div class="card">
+      <div class="outhead"><h3 id="rtitle">Resultados</h3><span class="geo" id="rgeom"></span></div>
+      <div id="rerr" class="err" hidden></div>
+      <div class="tiles" id="tiles"></div>
+      <div>
+        <div class="lbl" style="margin-bottom:4px">Perfil de temperatura a través de las capas</div>
+        <svg id="schema" class="chart" viewBox="0 0 580 300" role="img" aria-label="Perfil de temperatura a través de las capas"></svg>
+      </div>
+    </div>
+    <div class="card" id="extras">
+      <h3>Seguridad y consumo</h3>
+      <div id="safety" class="safe"></div>
+      <div class="row">
+        <div class="f" id="fArea"><label for="areaM2">Área expuesta [m²]<span class="tip" tabindex="0" data-tip="Superficie exterior total de la pared, techo o piso que pierde calor.">?</span></label><input type="number" id="areaM2" value="10" step="any" min="0"></div>
+        <div class="f" id="fLen"><label for="lenM">Largo [m]<span class="tip" tabindex="0" data-tip="Largo de la tubería o del ducto. El área se calcula como π × diámetro exterior × largo.">?</span></label><input type="number" id="lenM" value="10" step="any" min="0"></div>
+        <div class="f"><label for="hrs">Horas de operación al año</label><input type="number" id="hrs" value="8760" step="any" min="0"></div>
+      </div>
+      <div class="tiles four" id="costTiles"></div>
+      <p class="hint" id="costNote"></p>
+    </div>
+    <details class="more">
+      <summary>Detalle técnico</summary>
+      <div class="body">
+        <div class="tblwrap"><table class="res" id="restbl"></table></div>
+        <div class="tblwrap"><table id="laytbl"></table></div>
+        <p class="hint">Unidades como en el original: K [Btu·in/hr·ft²·°F] · X [in] · Qa [Btu/ft²] · ρ [lb/ft³].</p>
+      </div>
+    </details>
+  </div>
+  </div>
+</section>
+
+<!-- ================= COMPARAR ================= -->
+<section class="view" id="v-comparar">
+  <div class="vhead"><div><h2>Comparar opciones</h2><p>Prueba hasta 4 alternativas del mismo equipo: otro aislante, más espesor, otra emisividad o con viento. La tabla te dice cuál pierde menos calor y por cuánto.</p></div>
+    <div class="toolbar"><button type="button" id="cmpReset">Empezar con el caso actual</button><button type="button" id="cmpAdd">+ Agregar opción</button><button type="button" class="primary" id="cmpReport">Descargar comparación</button></div></div>
+  <div id="cmpEmpty" class="card empty" hidden><h3>Compara alternativas de tu caso</h3><p class="hint">Se crean dos opciones iguales a partir del caso abierto en Análisis térmico. Cambia en la opción B lo que quieras probar.</p><button type="button" class="primary" id="cmpStart">Empezar con el caso actual</button></div>
+  <div id="cmpBody">
+    <div class="card" style="margin-bottom:16px">
+      <div class="outhead"><h3>Resumen</h3><span class="geo" id="cmpInfo"></span></div>
+      <div class="tblwrap"><table class="cmpt" id="cmpTable"></table></div>
+      <p class="hint" id="cmpVerdict"></p>
+    </div>
+    <div class="cmpcols" id="cmpCols"></div>
+  </div>
+</section>
+
+<!-- ================= GRÁFICAS ================= -->
+<section class="view" id="v-graficas">
+  <div class="vhead"><div><h2>Gráficas</h2><p>Muestra cómo cambia el resultado si mueves una sola variable. Sirve para decidir, por ejemplo, a partir de qué espesor ya no conviene agregar más aislante.</p></div></div>
+  <div class="two">
+  <div class="card">
+    <p class="hint">Usa el caso abierto en Análisis térmico: <b id="gcase" style="color:var(--yel)"></b></p>
+    <div class="f"><label for="gtype">¿Qué quieres ver?</label>
+      <select id="gtype">
+        <option value="vel">Efecto del viento en la temperatura</option>
+        <option value="espq">Espesor contra pérdida de calor</option>
+        <option value="esptcf">Espesor contra temperatura exterior</option>
+        <option value="tcc">Temperatura interior contra exterior</option>
+      </select></div>
+    <div class="row" id="gp-vel">
+      <div class="f"><label for="gv0">Viento inicial [MPH]</label><input type="number" id="gv0" value="0" step="any"></div>
+      <div class="f"><label for="gvi">Incremento [MPH]</label><input type="number" id="gvi" value="2" step="any"></div>
+    </div>
+    <div class="row" id="gp-esp">
+      <div class="f" style="flex:2 1 170px"><label for="glay">Material que cambia</label><select id="glay"></select></div>
+      <div class="f"><label for="gxi">Incremento [in]</label><input type="number" id="gxi" value="0.5" step="any"></div>
+    </div>
+    <div class="row" id="gp-tcc">
+      <div class="f"><label for="gti">Incremento [°C]</label><input type="number" id="gti" value="20" step="any"></div>
+    </div>
+    <label class="hint" id="gp-fix" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="gfix" style="margin-top:3px"> Usar el incremento real. El original lo convierte como si fuera una temperatura (×1.8 + 32), así que con 20 avanza 27.8 °C por punto.</label>
+    <div class="f"><label for="gn">Número de puntos</label><input type="number" id="gn" value="10" min="2" max="40"></div>
+    <p class="hint" id="gnote"></p>
+  </div>
+  <div class="card">
+    <h3 id="gtitle"></h3>
+    <svg id="gchart" class="chart" viewBox="0 0 760 380" role="img" aria-label="Gráfica"></svg>
+    <div class="tblwrap"><table id="gtbl"></table></div>
+  </div>
+  </div>
+</section>
+
+<!-- ================= MATERIALES ================= -->
+<section class="view" id="v-materiales">
+  <div class="vhead"><div><h2>Materiales</h2><p>Catálogo de materiales con su densidad y su conductividad térmica, que cambia con la temperatura: K = a + bT + cT² (T en °F). Puedes agregar, editar y comparar.</p></div><span class="hint" id="mcount"></span></div>
+  <div class="two">
+  <div class="card">
+    <input type="search" id="msearch" placeholder="Buscar: INSWOOL, ACERO, LADRILLO…" aria-label="Buscar material">
+    <div class="mlist"><table><thead><tr><th>Material</th><th class="n">ρ</th><th class="n">K a 500 °F</th></tr></thead><tbody id="mbody"></tbody></table></div>
+    <div class="toolbar"><button type="button" id="mnew">+ Nuevo material</button><button type="button" id="mcsv">Exportar CSV</button><button type="button" id="mreset">Restaurar original</button></div>
+    <p class="hint">Los cambios al catálogo se guardan en este navegador.</p>
+  </div>
+  <div class="card">
+    <h3>Material seleccionado</h3>
+    <div class="row">
+      <div class="f" style="flex:2 1 220px"><label for="mname">Nombre</label><input type="text" id="mname" maxlength="33"></div>
+      <div class="f"><label for="mrho">Densidad [lb/ft³]<span class="tip" tabindex="0" data-tip="Se usa para calcular el calor que se queda acumulado en cada capa.">?</span></label><input type="number" id="mrho" step="any"></div>
+    </div>
+    <div class="row">
+      <div class="f"><label for="ma">a<span class="tip" tabindex="0" data-tip="Conductividad base. K = a + b·T + c·T², con T en °F y K en Btu·in/hr·ft²·°F.">?</span></label><input type="number" id="ma" step="any"></div>
+      <div class="f"><label for="mb">b</label><input type="number" id="mb" step="any"></div>
+      <div class="f"><label for="mc">c</label><input type="number" id="mc" step="any"></div>
+    </div>
+    <div class="toolbar"><button type="button" class="primary" id="msave">Guardar cambios</button><button type="button" id="mcmp">Comparar en la gráfica</button><button type="button" id="mdel">Borrar</button><span class="hint" id="mmsg"></span></div>
+    <div class="lbl">Conductividad contra temperatura (clic en un nombre para quitarlo)</div>
+    <div class="row">
+      <div class="f"><label for="kt0">Desde [°C]</label><input type="number" id="kt0" value="0" step="any"></div>
+      <div class="f"><label for="kt1">Hasta [°C]</label><input type="number" id="kt1" value="1000" step="any"></div>
+    </div>
+    <div class="legend" id="klegend"></div>
+    <svg id="kchart" class="chart" viewBox="0 0 760 340" role="img" aria-label="Conductividad contra temperatura"></svg>
+  </div>
+  </div>
+</section>
+
+<!-- ================= FLAMA ================= -->
+<section class="view" id="v-flama">
+  <div class="vhead"><div><h2>Temperatura de flama</h2><p>Calcula la temperatura que alcanza la flama de un combustible a partir del calor que libera y de los gases que produce.</p></div></div>
+  <div class="two">
+  <div class="card">
+    <div class="f"><label for="fuel">Combustible y comburente</label><select id="fuel"></select></div>
+    <div class="row">
+      <div class="f"><label for="fheat">Calor de combustión [Btu/lb]<span class="tip" tabindex="0" data-tip="Energía que libera una libra de combustible al quemarse.">?</span></label><input type="number" id="fheat" step="any"></div>
+      <div class="f"><label for="fmass">Gases por lb de combustible [lb]<span class="tip" tabindex="0" data-tip="Masa de gases de combustión que se forman por cada libra de combustible. Más gases reparten el calor y la flama queda más fría.">?</span></label><input type="number" id="fmass" step="any"></div>
+    </div>
+    <div class="row">
+      <div class="f"><label for="ftmix">Temp. de la mezcla [°C]</label><input type="number" id="ftmix" value="25" step="any"></div>
+      <div class="f"><label for="floss">Pérdida por radiación [%]</label><input type="number" id="floss" value="2.5" step="any"></div>
+    </div>
+    <div class="lbl">Composición de los gases de combustión (% en volumen)</div>
+    <div class="gasgrid">
+      <div class="f"><label for="fco2">CO₂ + SO₂</label><input type="number" id="fco2" value="9.5" step="any" min="0" max="100"></div>
+      <div class="f"><label for="fo2">O₂</label><input type="number" id="fo2" value="0" step="any" min="0" max="100"></div>
+      <div class="f"><label for="fh2o">Vapor H₂O</label><input type="number" id="fh2o" value="19" step="any" min="0" max="100"></div>
+      <div class="f"><label for="fn2">N₂</label><input type="number" id="fn2" value="71.5" step="any" min="0" max="100"></div>
+    </div>
+    <div class="sum" id="fsum"></div>
+    <label class="hint" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="ffix" style="margin-top:3px"> Aplicar la pérdida como porcentaje (corrección; el original casi no la toma en cuenta)</label>
+  </div>
+  <div class="card">
+    <div class="flame">
+      <span class="lbl">La temperatura de flama es</span>
+      <span class="big" id="fres">—</span>
+      <span class="hint" id="fsub"></span>
+      <div class="bar" aria-hidden="true"><i id="fmark"></i></div>
+      <div class="stripcap" style="width:100%;margin-top:4px"><span>0 °C</span><span>1,500 °C</span><span>3,000 °C</span></div>
+    </div>
+  </div>
+  </div>
+</section>
+
+<!-- ================= AJUSTE ================= -->
+<section class="view" id="v-ajuste">
+  <div class="vhead"><div><h2>Ajuste de curvas</h2><p>A partir de datos medidos (X, Y), encuentra la ecuación que mejor los describe. Así se obtuvieron los coeficientes a, b y c de los materiales.</p></div></div>
+  <div class="two">
+  <div class="card">
+    <div class="row">
+      <div class="f"><label for="fds">Datos de ejemplo</label><select id="fds"><option value="">Elegir…</option></select></div>
+      <div class="f"><label for="fdfile">Abrir archivo .DAT</label><input type="file" id="fdfile"></div>
+    </div>
+    <div class="f"><label for="fdata">Datos (una pareja X Y por renglón)</label><textarea id="fdata" rows="9"></textarea></div>
+    <div class="f"><span class="lbl">Tipo de ajuste<span class="tip" tabindex="0" data-tip="Lineal: una recta Y = a0 + a1·X. Múltiple: combinas hasta 5 funciones (X², Ln x, Exp x…) y se calcula el peso de cada una.">?</span></span>
+      <div class="seg" id="fproc"><button type="button" data-v="multi">Múltiple</button><button type="button" data-v="lin">Lineal</button></div></div>
+    <div id="funcs" class="f"></div>
+    <label class="hint" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="fround" checked style="margin-top:3px"> Redondear los datos a 2 decimales, igual que el original. Desactívalo para usar los datos con toda su precisión.</label>
+    <p class="hint">Y = a0·F0 + a1·F1 + … · Sen, Cos y Tan usan grados.</p>
+  </div>
+  <div class="card">
+    <h3 id="fitttl">Coeficientes</h3>
+    <div id="fiterr" class="err" hidden></div>
+    <div class="tblwrap"><table id="fitcoef" class="res"></table></div>
+    <div class="legend"><span><i style="background:var(--yel)"></i>Datos medidos</span><span><i style="background:var(--cold)"></i>Curva ajustada</span></div>
+    <svg id="fitchart" class="chart" viewBox="0 0 760 340" role="img" aria-label="Ajuste de curvas"></svg>
+    <details class="more"><summary>Matriz de datos, evaluaciones y errores</summary><div class="body"><div class="tblwrap"><table id="fitmat"></table></div></div></details>
+  </div>
+  </div>
+</section>
+
+<!-- ================= CONVERSIONES ================= -->
+<section class="view" id="v-conversiones">
+  <div class="vhead"><div><h2>Conversiones</h2><p>Tabla de equivalencias entre unidades de energía, potencia, longitud, presión y más. Escribe una unidad y el valor a convertir.</p></div></div>
+  <div class="card" style="max-width:980px">
+    <div class="row">
+      <div class="f" style="flex:2 1 240px"><label for="csearch">Buscar unidad</label><input type="search" id="csearch" placeholder="BTU, Watts, Pies, Atmósferas…"></div>
+      <div class="f"><label for="cval">Valor a convertir</label><input type="number" id="cval" value="1" step="any"></div>
+    </div>
+    <div class="tblwrap"><table><thead><tr><th>De</th><th class="n">Multiplica por</th><th>A</th><th class="n">Resultado</th></tr></thead><tbody id="cbody"></tbody></table></div>
+    <p class="hint" id="ccount"></p>
+  </div>
+</section>
+</main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+// Motor de cálculo Transcal (reconstruido del X5.EXE original, Transcal V3.0)
+// Unidades internas: °F, ft, BTU/hr-ft², igual que el programa original.
+const TC = (() => {
+  const GEOM = {
+    1: { name: 'Pared vertical', C1: 0.58, C2: 0.025, n2: 0.4, cyl: false, Llabel: 'Altura de la pared [m]' },
+    2: { name: 'Techo', C1: 0.54, C2: 0.14, n2: 1 / 3, cyl: false, Llabel: 'Longitud del techo [m]' },
+    3: { name: 'Piso elevado', C1: 0.27, C2: 0.064, n2: 1 / 3, cyl: false, Llabel: 'Longitud del piso [m]' },
+    4: { name: 'Cilindro horizontal', C1: 0.47, C2: 0.1, n2: 1 / 3, cyl: true },
+    5: { name: 'Cilindro vertical', C1: 0.58, C2: 0.025, n2: 0.4, cyl: true },
+  };
+  const C2F = c => c * 1.8 + 32, F2C = f => (f - 32) / 1.8;
+  const SIGMA = 1.712e-9, RAD0 = 460, GRPR_K = 752214941.2, K_AIR = 0.0152, GAS = 35333.33, GRPR_TURB = 1e10;
+  const kOf = (L, T) => (L.a + L.b * T + L.c * T * T) / 12; // BTU/hr-ft-°F
+
+  // Convección + radiación en la cara fría (proc 440d / 4270 del original)
+  function surface(TsF, TaF, V, eps, geom, Lft) {
+    const g = GEOM[geom];
+    const dT = TsF - TaF;
+    const grpr = dT * GRPR_K * Lft ** 3 / (TaF + RAD0);
+    let C, n;
+    if (grpr < GRPR_TURB) { C = g.C1; n = 0.25; } else { C = g.C2; n = g.n2; }
+    const nu = grpr > 0 ? C * Math.exp(n * Math.log(grpr)) : 0;
+    const h = V > 0 ? V * 0.33 + 1 : nu * K_AIR / Lft;
+    const qr = eps * SIGMA * ((TsF + RAD0) ** 4 - (TaF + RAD0) ** 4);
+    const qc = h * dT;
+    return { grpr, nu, h, qc, qr, q: qc + qr, turbulent: grpr >= GRPR_TURB };
+  }
+
+  // Newton con derivada numérica (paso 1e-5, tolerancia 1e-6) como el original, con respaldo por bisección
+  function solve(f, x0, lo, hi) {
+    let x = x0;
+    for (let i = 0; i < 200; i++) {
+      const fx = f(x);
+      if (!isFinite(fx)) break;
+      if (Math.abs(fx) < 1e-6) return x;
+      const d = (f(x + 1e-5) - fx) / 1e-5;
+      if (!d || !isFinite(d)) break;
+      let nx = x - fx / d;
+      if (lo !== undefined && (nx <= lo || nx >= hi)) nx = (x + (fx > 0 === d > 0 ? lo : hi)) / 2;
+      if (Math.abs(nx - x) < 1e-12) return nx;
+      x = nx;
+    }
+    if (lo === undefined) return x;
+    // bisección
+    let a = lo, b = hi, fa = f(a), fb = f(b);
+    if (!(fa * fb <= 0)) return NaN;
+    for (let i = 0; i < 300; i++) {
+      const m = (a + b) / 2, fm = f(m);
+      if (Math.abs(fm) < 1e-6 || b - a < 1e-10) return m;
+      if (fa * fm <= 0) { b = m; fb = fm; } else { a = m; fa = fm; }
+    }
+    return (a + b) / 2;
+  }
+
+  // Recorre las capas de la cara fría hacia la caliente (proc 4d60)
+  function march(TsF, q, layers, cyl, Dout) {
+    const T = [TsF], k = [], D = [Dout];
+    for (let j = 0; j < layers.length; j++) {
+      const L = layers[j], x = L.x;
+      const Tp = T[j];
+      let res;
+      if (cyl) {
+        const Di = D[j] - 2 * x; D.push(Di);
+        if (Di <= 0) return null;
+        const geo = Dout * Math.log(D[j] / Di) / 2;
+        res = Tj => Tj - Tp - q * geo / kOf(L, (Tj + Tp) / 2);
+      } else {
+        res = Tj => Tj - Tp - q * x / kOf(L, (Tj + Tp) / 2);
+      }
+      let Tj = x === 0 ? Tp : solve(res, Tp + (Tp === 0 ? 1 : Tp), Tp - 1e5, Tp + 1e5);
+      if (!isFinite(Tj)) Tj = solve(res, Tp, Math.min(Tp, Tp + 0) - 20000, Tp + 20000);
+      T.push(Tj); k.push(kOf(L, (Tj + Tp) / 2));
+    }
+    return { T, k, D };
+  }
+
+  // Calor acumulado (proc 5b35): x·ρ·cp·(Tm-Ta), cp = 0.2 + 3.5e-5·Tm
+  function stored(layers, T, TaF) {
+    return layers.map((L, j) => {
+      const Tm = (T[j] + T[j + 1]) / 2;
+      return L.x * L.rho * (Tm * 3.5e-5 + 0.2) * (Tm - TaF);
+    });
+  }
+
+  // c: {mode, geom, TaC, V, eps, TCFC, TCCC, Lm, Dm, dir, layers:[{name,rho,a,b,c,xin}]}
+  function analyze(c) {
+    const g = GEOM[c.geom];
+    const TaF = C2F(c.TaC);
+    const layersIn = c.layers.filter(l => l.name && l.name.trim() !== '');
+    if (!layersIn.length) throw new Error('Agrega al menos un material.');
+    const layers = layersIn.map(l => ({ ...l, x: l.xin / 12 }));
+    // En modos 1 y 2 el diámetro externo del cilindro se captura en el mismo campo que la altura (Lm);
+    // en búsqueda de espesor se usa el campo inferior (Dm).
+    const Lft = c.Lm / 0.3048, DftIn = (g.cyl && c.mode !== 3 ? c.Lm : c.Dm) / 0.3048;
+    const charL = g.cyl ? DftIn : Lft;
+    if (!(charL > 0)) throw new Error(g.cyl ? 'Falta el diámetro.' : 'Falta la altura/longitud.');
+    let TsF, surf, mres, unknown = -1, Dout = DftIn, warn = [];
+    const totalX = () => layers.reduce((s, l) => s + l.x, 0);
+
+    if (c.mode === 1 || c.mode === 2) {
+      if (g.cyl && 2 * totalX() >= Dout) throw new Error('La suma de espesores excede el radio del cilindro.');
+      const run = Ts => { const s = surface(Ts, TaF, c.V, c.eps, c.geom, charL); return { s, m: march(Ts, s.q, layers, g.cyl, Dout) }; };
+      if (c.mode === 1) {
+        TsF = C2F(c.TCFC);
+      } else {
+        const TccF = C2F(c.TCCC);
+        const f = Ts => { const r = run(Ts); return r.m ? r.m.T[r.m.T.length - 1] - TccF : NaN; };
+        const lo = Math.min(TaF, TccF), hi = Math.max(TaF, TccF);
+        TsF = solve(f, 2 * TaF > lo && 2 * TaF < hi ? 2 * TaF : (lo + hi) / 2, lo, hi);
+        if (!isFinite(TsF)) throw new Error('No se encontró solución para la temperatura de cara fría.');
+      }
+      const r = run(TsF); surf = r.s; mres = r.m;
+    } else {
+      unknown = layers.findIndex(l => !(l.xin > 0));
+      if (unknown < 0) throw new Error('Para buscar espesor deja en 0 el espesor de la capa desconocida.');
+      TsF = C2F(c.TCFC);
+      const TccF = C2F(c.TCCC);
+      const outerX = () => layers.slice(0, unknown).reduce((s, l) => s + l.x, 0);
+      // diámetro usado para la convección: el capturado (centro) o el de la cara exterior sin la capa desconocida (hacia afuera)
+      const Dconv = g.cyl ? (c.dir === 0 ? DftIn + 2 * outerX() : DftIn) : charL;
+      surf = surface(TsF, TaF, c.V, c.eps, c.geom, g.cyl ? Dconv : charL);
+      const Dfor = x => (g.cyl && c.dir === 0) ? DftIn + 2 * (outerX() + x) : DftIn;
+      const f = x => {
+        layers[unknown].x = x;
+        const m = march(TsF, surf.q, layers, g.cyl, Dfor(x));
+        return m ? m.T[m.T.length - 1] - TccF : NaN;
+      };
+      let hi = 100; // ft
+      if (g.cyl && c.dir !== 0) hi = (DftIn / 2 - layers.reduce((s, l, i) => i === unknown ? s : s + l.x, 0)) * 0.999999;
+      if (!(hi > 0)) throw new Error('No queda espacio en el cilindro para la capa desconocida.');
+      const x = solve(f, Math.min(1, hi / 2), 0, hi);
+      if (!isFinite(x)) throw new Error('No existe un espesor que cumpla esas temperaturas con estos materiales.');
+      layers[unknown].x = x;
+      Dout = Dfor(x);
+      mres = march(TsF, surf.q, layers, g.cyl, Dout);
+    }
+    const T = mres.T;
+    const qa = stored(layers, T, TaF);
+    // Perfil interior de cada capa (para dibujar la curva, como el esquema del original):
+    // se divide la capa en 12 sub-capas con k a su temperatura media y se ajusta para terminar en T[j+1].
+    const NS = 12;
+    const profile = layers.map((L, j) => {
+      const pts = [T[j]]; let Tp = T[j];
+      for (let s = 1; s <= NS; s++) {
+        let res;
+        if (g.cyl) {
+          const Da = mres.D[j] - 2 * L.x * (s - 1) / NS, Db = mres.D[j] - 2 * L.x * s / NS;
+          const geo = Dout * Math.log(Da / Db) / 2; res = Tn => Tn - Tp - surf.q * geo / kOf(L, (Tn + Tp) / 2);
+        } else { const dx = L.x / NS; res = Tn => Tn - Tp - surf.q * dx / kOf(L, (Tn + Tp) / 2); }
+        const Tn = L.x === 0 ? Tp : solve(res, Tp + 1, Tp - 1e5, Tp + 1e5); pts.push(Tn); Tp = Tn;
+      }
+      const end = pts[NS], k = end !== T[j] ? (T[j + 1] - T[j]) / (end - T[j]) : 0;
+      return pts.map((v, s) => [s / NS, F2C(T[j] + (v - T[j]) * k)]);
+    });
+    const qaTot = qa.reduce((s, v) => s + v, 0);
+    return {
+      geom: g, mode: c.mode, unknown,
+      TaC: c.TaC, TCF: F2C(TsF), TCC: F2C(T[T.length - 1]),
+      grpr: surf.grpr, turbulent: surf.turbulent, nu: surf.nu, h: surf.h,
+      U: surf.q / (TsF - TaF), q: surf.q, qc: surf.qc, qr: surf.qr,
+      pctRad: surf.qr * 100 / surf.q, gas: surf.q / GAS, qaTot, gasStored: qaTot / GAS,
+      Dout_m: g.cyl ? Dout * 0.3048 : null,
+      layers: layers.map((l, j) => ({
+        name: l.name, xin: l.x * 12, kin: mres.k[j] * 12, rho: l.rho, qa: qa[j],
+        Tin: F2C(T[j]), Tout: F2C(T[j + 1]), D_m: g.cyl ? mres.D[j + 1] * 0.3048 : null,
+      })),
+      T_C: T.map(F2C), profile,
+    };
+  }
+
+  // ---- Archivos .CAS (formato del original) ----
+  const fmtE = v => { // " 5.00000000000000E+0002"
+    if (v === 0) return ' 0.00000000000000E+0000';
+    const e = Math.floor(Math.log10(Math.abs(v)));
+    let m = v / 10 ** e; let ee = e;
+    if (Math.abs(m) >= 10) { m /= 10; ee++; }
+    const s = (m < 0 ? '-' : ' ') + Math.abs(m).toFixed(14) + 'E' + (ee < 0 ? '-' : '+') + String(Math.abs(ee)).padStart(4, '0');
+    return s;
+  };
+  function parseCAS(text) {
+    const L = text.replace(/\r/g, '').split('\n');
+    let i = 0; const nx = () => (L[i++] ?? '');
+    const c = { title: nx().trim(), layers: [] };
+    for (let k = 0; k < 10; k++) {
+      const name = nx().trim(); const rho = +nx(), a = +nx(), b = +nx(), cc = +nx(), xin = +nx();
+      if (name) c.layers.push({ name, rho, a, b, c: cc, xin });
+    }
+    const v = []; for (let k = 0; k < 10; k++) v.push(+nx());
+    [c.mode, c.geom, c.TaC, c.V, c.eps, c.TCFC, c.TCCC, c.Lm, c.Dm, c.dir] = v;
+    return c;
+  }
+  function writeCAS(c) {
+    const out = [c.title || 'Actual.Dat'];
+    for (let k = 0; k < 10; k++) {
+      const l = c.layers[k];
+      if (l) out.push(l.name, fmtE(l.rho), fmtE(l.a), fmtE(l.b), fmtE(l.c), String(l.xin));
+      else out.push(' '.repeat(13), fmtE(0), fmtE(0), fmtE(0), fmtE(0), '0.000');
+    }
+    out.push(c.mode, c.geom, c.TaC, c.V, c.eps, c.TCFC, c.TCCC, c.Lm, c.Dm, c.dir);
+    return out.join('\r\n') + '\r\n';
+  }
+
+  // ---- Temperatura de flama (segmento 0DDC del original) ----
+  const FUELS = [
+    ['Grafito + aire', 14140, 12.52], ['Hidrógeno + aire', 61100, 35.6], ['Monóxido de carbono + aire', 4368, 3.47],
+    ['Monóxido de carbono + oxígeno', 4368, 1.57], ['Metano + aire', 23879, 18.31], ['Metano + oxígeno', 23879, 5],
+    ['Etano + aire', 22320, 17.16], ['Acetileno + aire', 21344, 14.31], ['Acetileno + oxígeno', 21344, 4.08],
+    ['Benceno (vap) + aire', 18447, 14.31],
+  ];
+  const CP = { // [a,b,c,d] por gas, peso molecular
+    co2: [[8.83, 0.00179, -2.63e-7, 1.19e-10], 44.01], o2: [[7.04, 0.001, -4.33e-7, 7.8e-11], 32],
+    h2o: [[8.14, -0.00031, 4.3e-7, 6.7e-11], 18], n2: [[6.89, 0.00033, -3e-9, 0], 28.16],
+  };
+  // p: {co2,o2,h2o,n2 (% vol), TmixC, loss, heat, mass, fixLoss}
+  function flame(p) {
+    const ks = ['co2', 'o2', 'h2o', 'n2'];
+    const M = ks.reduce((s, k) => s + p[k] * CP[k][1], 0);
+    if (!(M > 0)) throw new Error('La composición de los gases no puede ser cero.');
+    const co = [0, 1, 2, 3].map(i => ks.reduce((s, k) => s + p[k] * CP[k][0][i], 0) / M);
+    const T0 = C2F(p.TmixC);
+    // Original: calor - (1 - pérdida). fixLoss aplica calor·(1 - pérdida/100).
+    const Q = p.fixLoss ? p.heat * (1 - p.loss / 100) : p.heat - (1 - p.loss);
+    const H = T => co[0] * (T - T0) + co[1] * (T * T - T0 * T0) + co[2] * (T ** 3 - T0 ** 3) + co[3] * (T ** 4 - T0 ** 4);
+    const dH = T => co[0] + 2 * co[1] * T + 3 * co[2] * T * T + 4 * co[3] * T ** 3;
+    let T = T0, it = 0;
+    for (; it < 200; it++) {
+      const f = Q - H(T) * p.mass, d = -dH(T) * p.mass;
+      const step = -f / d; T += step;
+      if (Math.abs(step) < 0.01) break;
+    }
+    return { TC: F2C(T), TF: T, iter: it + 1, Q };
+  }
+
+  // ---- Ajuste de curvas por mínimos cuadrados ----
+  const DEG = Math.PI / 180;
+  const FUNCS = {
+    pow: (x, n) => x ** n, sin: x => Math.sin(x * DEG), cos: x => Math.cos(x * DEG), tan: x => Math.tan(x * DEG),
+    ln: x => Math.log(x), exp: x => Math.exp(x), expn: x => Math.exp(-x),
+  };
+  function fnLabel(f) {
+    return { pow: f.n === 0 ? '1' : f.n === 1 ? 'X' : `X^${f.n}`, sin: 'Sen(x)', cos: 'Cos(x)', tan: 'Tan(x)', ln: 'Ln(x)', exp: 'Exp(x)', expn: 'Exp(-x)' }[f.type];
+  }
+  function evalF(f, x) {
+    if (f.type === 'pow' && x === 0 && f.n < 0) throw new Error('La función está indefinida para x = 0');
+    if (f.type === 'tan' && Math.abs(((x % 180) + 180) % 180 - 90) < 1e-12) throw new Error('La función está indefinida para x = 90');
+    if (f.type === 'ln' && x <= 0) throw new Error('La función está indefinida para x <= 0');
+    return FUNCS[f.type](x, f.n);
+  }
+  function fit(pts, funcs) {
+    const m = funcs.length, A = Array.from({ length: m }, () => Array(m + 1).fill(0));
+    for (const [x, y] of pts) {
+      const v = funcs.map(f => evalF(f, x));
+      for (let i = 0; i < m; i++) { for (let j = 0; j < m; j++) A[i][j] += v[i] * v[j]; A[i][m] += v[i] * y; }
+    }
+    for (let i = 0; i < m; i++) { // Gauss con pivoteo
+      let p = i; for (let r = i + 1; r < m; r++) if (Math.abs(A[r][i]) > Math.abs(A[p][i])) p = r;
+      [A[i], A[p]] = [A[p], A[i]];
+      if (Math.abs(A[i][i]) < 1e-300) throw new Error('El sistema no tiene solución');
+      for (let r = 0; r < m; r++) if (r !== i) { const k = A[r][i] / A[i][i]; for (let cc = i; cc <= m; cc++) A[r][cc] -= k * A[i][cc]; }
+    }
+    const coef = A.map((r, i) => r[m] / r[i]);
+    const pred = x => funcs.reduce((s, f, i) => s + coef[i] * evalF(f, x), 0);
+    const ym = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+    let ssr = 0, sst = 0;
+    for (const [x, y] of pts) { ssr += (y - pred(x)) ** 2; sst += (y - ym) ** 2; }
+    return { coef, pred, r2: sst ? 1 - ssr / sst : 1 };
+  }
+
+  return { GEOM, C2F, F2C, analyze, surface, parseCAS, writeCAS, FUELS, flame, fit, fnLabel, kOf };
+})();
+if (typeof module !== 'undefined') module.exports = TC;
+
+</script>
+<script>
+const DATA = {"mats":[["18-8 ALLOY",105.0,0.0485,0.0,480.0],["90-B",22.45,-0.008182,2.045e-06,177.0],["99AD",39.43,-0.02045,4.697e-06,190.0],["ACERO 308",9.43,0.165733,0.0,512.0],["ACERO 310",8.78,0.1435024,0.0,533.0],["ACERO AL CARBON",333.0,-0.0833,0.0,500.0],["ACERO LIQUIDO",316.9,-0.153,4.63e-05,480.0],["ACERO MONEL",103.08,0.12995,-9.271e-07,542.4],["ACEROS 304-316",10.42,0.1649344,0.0,520.0],["ACEROS 403-410",16.82,0.222256,0.0,531.0],["ACEROS 501-502",26.54,0.26452,0.0,501.0],["AIRE",0.158667,0.00027001759,-3.241183e-08,0.0],["ALAMO",5.58,0.0060949,-1.943e-06,190.0],["ALKACAST",5.4975666,-0.0009750542,2.720734e-07,163.0],["ALMAG 80",21.7674,0.0,0.0,181.0],["ALMAG 85",22.57,0.0,0.0,181.0],["ALUMINA (AL2O3)",216.1,-0.1564,3.231e-05,169.0],["ALUMINIO (AL)",676.99,2.952553,-0.001924,165.0],["ALUMINIO LIQUID",-278.51,0.770555,0.0,148.4],["ALUSA",17.17382,-0.006451989,2.3257749e-06,143.0],["ALUSA CAST-G",12.69,-0.0038987,1.274e-06,183.0],["ALUSA CASTABLE",6.89,0.0072387,-2.914e-06,166.0],["ALUSITE-D",15.506315,-0.0047935,1.94292e-06,177.0],["AMONIACO (NH3)",0.135185,0.00042541887,1.2676366e-07,0.0],["ANCOR-DASH",10.76069036,-0.0022651,1.258729e-06,144.0],["ANTIMONIO LIQUI",188.59,-0.032277,0.0,405.2],["APACHITE",3.86352,0.01483798,-5.613378e-06,154.0],["APG BLOCK INS",0.3,0.0,7.5e-07,15.0],["ARC-HARD D",92.125,-0.0625,1.7969e-05,242.0],["ARGON (AR)",0.107726,0.000168093,-1.817029e-08,0.0],["ASBESTO",1.02009,0.00155185,-1.1304463e-06,36.0],["BASICRETO",12.0,-0.004375,1.40625e-06,162.2],["BISMUTO LIQUIDO",186.49,-0.1702083,8.958e-05,624.4],["BISON",7.22,0.0059812,-1.829e-06,187.0],["CA-2001",0.29,0.00025,1.875e-07,20.0],["CA-2004",3.02,0.0004957265,-3.419e-08,97.0],["CADMIO LIQUIDO",1872.77,-4.47646,0.003193,500.14],["CAST BLK MIX",0.29,0.00025,1.875e-07,21.0],["CAST INS #20",1.29,0.0012,-5e-07,55.0],["CAST INS #20(G)",1.51,0.0014375,-5.9375e-07,65.0],["CAST INS #22",1.21,0.001025,-3.75e-07,50.0],["CAST INS #22 GR",2.04,0.0008375,-2.815e-07,72.0],["CAST MIX #219 (G)",0.34,0.000374999,1.875e-07,30.0],["CASTEX 24C",3.803125,0.00029375,5.859375e-08,110.0],["CASTEX 25C",3.98,0.0004375,3.124999e-08,120.0],["CASTEX 25C (G)",3.858125,0.0004624999,1.171875e-08,122.0],["CASTEX 31A",4.1975,0.00053125,0.0,130.0],["CASTEX 90",11.0135,-0.002335625,7.682813e-07,165.0],["CASTOLAST",13.93705,-0.0033498,3.9584e-07,167.0],["CASTOLAST-G",13.43135,0.01058141,-5.418457e-06,100.0],["CENTURION",9.6999,1.1684e-09,3.125e-07,144.0],["CHEMOBAR",2.6,-0.0007093,5.208e-07,123.0],["CHROMEX-B",10.9319,0.0021549065,-6.7141668e-07,180.0],["CINC (ZN)",227.57,2.714877,-0.00299,440.0],["CINC LIQUIDO",11.2,0.7451865,-0.0003442,432.08],["CLIPPER DP",8.64,8.75e-05,2.188e-07,142.0],["CLIPPER S",8.64,8.75e-05,2.1875e-07,141.0],["CLIPPER SM",8.64,8.75e-05,2.1875e-07,148.0],["COBRE (CU)",2687.58,-0.2928924,7.496e-05,556.0],["CONOX VII",63.2,-0.0288125,5.23438e-06,189.0],["CONOX X",63.2,-0.0288125,5.23438e-06,193.0],["CORAL",19.8916996,0.0127518,-7.215e-06,190.0],["CORAL PLASTIC",18.71,-0.0068445,2.094e-06,132.0],["CORAL-BP",17.64224,-0.0033836369,1.60465e-06,177.5],["CORAL-P",35.0066,-0.016053,4.267288e-06,180.5],["CORAL-P75",19.637327,-0.0025046999,3.593717e-07,162.5],["CORALITE PLASTI",9.86,-0.0017231,6.306e-07,172.0],["CORALITE-D",21.132016,-0.010131418,3.95464946e-06,178.5],["CORALITE-XD",25.39155,-0.013368,4.8462e-06,178.0],["CORCHO",0.3,0.0,0.0,10.0],["COSTRA DE CLINKER",7.9856,0.0,0.0,155.0],["CRYSTALITE",9.636,-0.0002912,1.834e-07,164.0],["CTX",6.4625,0.0,-7.812493e-08,131.0],["CTX-HT",6.4625,0.0008749998,-7.812493e-08,131.0],["DAUBPAX",5.4,-0.002375,1.5625e-06,128.0],["DELTA I",18.56,-0.00955,4.75e-06,187.0],["DIOX D AZUFRE",0.0551789,0.0001750176,2.204585e-08,0.0],["DIOX DE CARBONO",0.0844564,0.00035906888,-5.35547e-08,0.0],["DIOX DE TITANIO",53.194457,-0.04938979,2.022908e-05,254.76],["DURO",8.0,0.0,0.0,142.0],["DV",22.445,-0.008182,2.0455e-06,176.0],["DV-38",22.445,-0.008182,2.0455e-06,181.0],["DV-38_75H2",22.8805,-0.00760915,2.02686e-06,181.2],["EMPIRE DP",7.6,0.00125,-1.562e-07,131.0],["EMPIRE S",7.6,0.00125,-1.5625e-07,132.0],["EMPIRE SM",8.9,0.000875,-4.6566e-14,147.0],["ESTANO (SN)",53.21,3.52812,-0.006915,459.0],["ESTANO LIQUIDO",21834.56,0.05573,-5.124e-05,424.6],["EXPRESS-27",5.65,0.00125,-3.125e-07,128.0],["EXPRESS-30",9.4,-0.0007499,1.56249e-07,143.0],["FIBER MIX 901",0.333333,0.000124999,7.291666e-07,8.0],["FREON-12",0.11952,-0.00031728,6.1728e-07,0.0],["G-20 IFB",1.35999,0.000475,6.24999e-08,42.0],["G-20 LI",2.4,-0.001625,9.375e-07,45.0],["G-23 IFB",1.58,0.0003124999,1.5625e-07,46.0],["G-23 LI",1.6375,-0.00025,3.90625e-07,46.0],["G-25 LI",1.0,0.0013,-1.999e-07,43.0],["G-26 IFB",1.68666,0.0002749999,1.458333e-07,50.0],["G-26 LI",1.5125,0.00075,-7.8125e-08,51.0],["G-28 LI",2.2,0.0004,0.0,56.0],["G-30 LI",2.5,0.0003999,1.7466e-15,65.0],["G-32 LI",3.9,0.0001999,3.667e-15,75.0],["GL-23 IFB",1.125,0.00125,-1.5625e-07,40.0],["GL-28 IFB",1.91,0.0007624999,7.275957e-16,48.0],["GL-30 IFB",2.09,0.001,-1.5625e-08,58.0],["GL-33 IFB",4.41,-0.00075625,4.765625e-07,80.0],["GL-KL IFB",2.0925,0.0006874999,7.8125e-08,60.0],["GLADIATOR",13.0,0.0015625,-3.90625e-07,169.0],["GRAPHPAK",5.82,0.00414,-6.434e-07,145.0],["GRAY RAM",9.31,-3.57143e-05,-1.786e-07,150.0],["GREEN 1C80",26.2625,-0.007625,3.6719e-06,147.0],["GREEN 1P70 PLUS",33.0625,-0.002125,3.047e-06,167.0],["GREEN 1P73 PLUS",35.225,-0.002375,3.28125e-06,170.0],["GREEN 40",14.868,0.00226,-1.7e-06,190.0],["GREEN 8C32",5.228,0.0005625,-7.8125e-08,115.0],["GREEN 98",63.2,-0.0288125,5.234375e-06,172.0],["GREEN 9C35",5.13,0.0007125,-2.188e-07,121.0],["GREEN 9C86",14.99,-0.00056875,5.2344e-07,182.0],["GREEN B-40",14.868,0.00226,-1.7e-06,190.0],["GREEN B-70",13.46,0.0026,0.0,181.0],["GREEN B-80",18.4,-0.0005,0.0,181.0],["GREEN B-98",63.2,-0.0288125,5.234375e-06,178.0],["GREEN-X",2.3131,0.002915,4.7302e-08,123.0],["GREEN-X",2.3131,0.002915,4.7302e-08,123.0],["GREENAL-50-A",11.9099,-0.002374,1.4793e-06,174.0],["GREENAL-80",15.95,-0.004125,1.25e-06,174.0],["GREENAL-80 T.I.",15.95,-0.004125,1.25e-06,182.0],["GREENAL-80-AR",22.445,-0.008182,2.0455e-06,179.0],["GREENAL-80-P",15.95,-0.004125,1.25e-06,174.0],["GREENAL-83-MP",22.445,-0.008182,2.0455e-06,182.0],["GREENAL-90",49.3,-0.036,1.0625e-05,188.0],["GREENAL-94",31.386,-0.011664,2.7857e-06,190.0],["GREENBLOK 60-P",10.55625,-0.000125,3.3594e-07,140.0],["GREENBLOK 85-P",14.0,-0.000625,0.0,167.0],["GREENCARB",15.95,-0.004125,1.25e-06,172.0],["GREENCARB-70",8.4,0.002125,-3.125e-07,168.0],["GREENCARB-80",15.95,-0.004125,1.25e-06,180.0],["GREENCARB-80-P",15.95,-0.004125,1.25e-06,178.0],["GREENCAST-12 GR",5.5,0.000104167,5.2083e-08,121.0],["GREENCAST-19-L",0.56,7.5e-05,3.75e-07,20.0],["GREENCAST-19-LG",0.94,-5e-05,2.5e-07,26.0],["GREENCAST-26-L",1.21,0.001025,-3.75e-07,50.0],["GREENCAST-28 GR",6.5925,-0.0002375,1.40625e-07,127.0],["GREENCAST-45-L",2.914286,-0.00067857,3.5714e-07,71.0],["GREENCAST-45LGR",3.1889,-0.00105555,5.55555e-07,71.0],["GREENCAST-94",17.4,-0.0065,1.5625e-06,163.0],["GREENCAST-94 GR",14.9,-0.0088125,3.516e-06,155.0],["GREENCAST-97",16.8,-0.0061875,1.4843e-06,163.0],["GREENCAST-97-L",8.73333,-0.003375,7.29166e-07,85.0],["GREENCRETE ARC",12.0,-0.004375,1.40625e-06,172.0],["GREENFLO 31",13.8377,-0.00087825,6.31434e-07,174.0],["GREENFLO-31PLUS",13.25,0.000625,0.0,174.0],["GREENGUN-45",4.1125,-0.00075,1.171875e-06,131.0],["GREENGUN-45 P",2.117,0.006875,-1.666e-06,136.0],["GREENGUN-50",4.1125,-0.00075,1.171875e-06,139.0],["GREENGUN-50-P",2.117,0.006875,-1.666e-06,139.0],["GREENGUN-60",3.8333,0.0004999,4.16667e-07,144.0],["GREENGUN-70",3.8,0.000875,3.125e-07,150.0],["GREENGUN-70-P",11.38889,2.777629e-05,1.388894e-07,154.0],["GREENGUN-83-P S",17.17,-0.00425,1.458e-06,156.0],["GREENGUN-85-P",17.1667,-0.00425,1.458e-06,165.0],["GREENGUN-90-P",16.325,-0.00165,5.9375e-07,173.0],["GREENKON-26",4.3525,0.0005125,1.562499e-08,140.0],["GREENKON-26PLUS",8.25875,-0.000925,2.578125e-07,140.0],["GREENKON-28",4.402,0.0005417,8.333e-09,142.0],["GREENKON-28PLUS",8.3125,-0.000875,2.34375e-07,139.0],["GREENKON-30",11.6,-0.002375,7.8125e-07,175.0],["GREENMUL-60",6.8,0.00049998,3.125e-07,156.0],["GREENMUL-60",11.4,0.000375,0.0,156.0],["GREENPAK 50-P",5.49,0.000625,9.375e-07,140.0],["GREENPAK 85-P",16.5,-0.002875,9.375e-07,167.0],["GREENPAK-60",3.83333,0.0004999,4.16667e-07,142.0],["GREENPAK-70-PLT",9.88889,2.777631e-05,1.388894e-07,145.0],["GREENPAK-80",2.16,0.00235,0.0,164.0],["GREENPAK-85-MP",17.1667,-0.00425,1.458e-06,160.0],["GREENPAK-85-MPS",17.1667,-0.00425,1.458e-06,156.0],["GREENPAK-85-P",17.1667,-0.00425,1.458e-06,167.0],["GREENPAK-85-PF",17.1667,-0.00425,1.458e-06,167.0],["GREENPAK-90-P",16.325,-0.00165,5.9375e-07,176.0],["GREENTAB SR",27.2143,-0.008269,1.881e-06,186.0],["GRNCAST 12 GR (G)",3.858125,0.0004624999,1.171875e-08,122.0],["GRNCAST 12 GR (P)",3.98,0.0004375,3.124999e-08,118.0],["GRNCAST 28 GR (G)",3.858125,0.0004624999,1.171875e-08,123.0],["GRNCAST-94 GR (G)",11.01,-0.002336,7.683e-07,160.0],["GRNCAST-97 GR (G)",11.01,-0.002336,7.683e-07,160.0],["GRNCAST-97 GR (P)",11.01,-0.002336,7.683e-07,160.0],["GRNCRETE C STD",12.0,-0.004375,1.40625e-06,167.0],["GRNCRETE C SUPR",12.0,-0.004375,1.40625e-06,175.0],["GRNCST-97 L GR (G)",12.18,-0.006017,1.417e-06,105.0],["GRNCST-97 L GR (P)",8.7333,-0.003375,7.291666e-07,85.0],["GRNKLEEN-45",7.7,-0.0005625,1.5625e-07,130.0],["GRNKLEEN-45-L",2.8143,-0.00067857,3.5714e-07,64.0],["GRNKLEEN-60PLUS",12.4,-0.002875,7.8125e-07,151.0],["GRNLITE EXPSS24",4.1,-0.000375,3.125e-07,96.0],["GRNLITE EXPSS25",4.9375,0.000125,7.8125e-08,107.0],["GRNLITE-HS",1.48,0.00275,-6.25e-07,75.0],["GUIDON",38.593233,-0.01502915,5.0283812e-06,203.0],["GUIDON-SR",44.35,-0.0253,6.649e-06,200.0],["HARCAST",5.83166,0.0006908346,-7.681888e-08,123.0],["HARCAST-BF",6.739814,-0.0001782765,1.986584e-07,163.0],["HARCAST-ES",9.2366,-0.0012491,4.186937e-07,160.0],["HARCHROME",6.0249122,0.001616165,-7.581453e-07,161.0],["HARMIX-AL",19.15,-0.010264,2.836e-06,165.0],["HARMIX-CU",14.9,-0.0054628,2.43e-06,173.0],["HARMIX-FE",30.4,-0.017237,4.043e-06,164.0],["HASTELOY-A",64.58,0.0678513946,-4.948e-07,509.0],["HELIO (HE)",0.92567,0.001375632,-3.69659e-08,0.0],["HIDROGENO (H2)",1.11048879,0.00149389,-7.377958e-08,0.0],["HIERRO LIQUIDO",178.93,0.03333,0.0,493.0],["HIGH ALUMINA PL",3.4,0.001375,3.125e-07,152.0],["HW 16-20",0.91818,0.000707575,-5.6178e-22,36.0],["HW BLOCK INSULA",0.37,0.0001634865,2.605e-07,14.0],["HW C MIX",26.89,0.036659,-2.168e-05,174.0],["HW CHROME CASTA",6.96,0.0003662667,-1.823e-07,167.0],["HW ES CASTAB C",7.83,0.000170859,5.121e-08,130.0],["HW ES CASTAB LI",6.36,0.00059438,-1.793e-07,122.0],["HW ES CASTABLE",5.13,0.0015411,-5.269e-07,121.0],["HW HI ALUM CAST",8.15,-0.000376522,2.709e-07,137.0],["HW LANA MINERAL",0.49,0.0004,0.0,10.0],["HW LW CAST40-60",2.56,1.17776e-05,2.592e-07,70.0],["HW LW CASTAB 10",0.02,0.0027915,-1.754e-06,123.0],["HW LW CASTAB 20",1.07,0.0001640796,9.547e-08,69.76],["HW LW CASTAB 22",1.31,0.0002230906,7.898e-08,65.0],["HW LW CASTAB 26",1.29,0.000374167,5.142e-08,75.2],["HW LW CASTAB 30",2.95,0.0008874097,-1.525e-08,73.12],["HW LW CASTAB 33",9.1,-0.0052839589,1.662e-06,70.0],["HW LW CASTAB ES",1.92,0.000912437,-2.248e-07,75.0],["HW LW CASTAB LI",1.47,0.0004628372,-6.743e-08,71.0],["HW MAGNESITE",120.19,-0.0917714,2.377e-05,178.0],["HW MULLITE PLAS",8.61,-0.00093963,3.354e-07,162.0],["HW MULLITE RAMX",7.25,-0.0022447,9.737e-07,159.0],["HW PERIKLASE",108.43,-0.079995438,2.064e-05,179.0],["HW STD PLASTIC",5.0,0.001831411,-2.284e-07,165.0],["HW STOVE",4.38,0.00667037,-2.196e-06,167.0],["HW SUPER PLASTI",6.5,0.0013144819,-1.202e-07,144.0],["HW ZIRCON",36.56,-0.0252007,8.008e-06,228.5],["HW-20",1.119454,0.0007000757,5.6818e-09,38.0],["HW-20-LI",0.71356,5.596315e-05,2.288299935e-07,29.0],["HW-23",1.28033,0.0007834165,-2.4975e-10,46.0],["HW-23-LI",0.8107505,0.0004712273,3.899075e-08,31.0],["HW-26",1.656,1.88454e-05,2.4262e-07,48.0],["HW-28",1.8,0.00075,0.0,56.0],["HW-28-LI",1.71246,0.000461284,1.71164e-07,51.0],["HW-30",2.05,0.00075,0.0,60.0],["HW-30-LI",2.367639,-0.0002266706,4.3362e-07,58.0],["HW-33-LI",7.414436,-0.0032140048,1.6062141e-06,82.0],["HYDROCRETE",3.98,0.0004375,3.124999e-08,120.0],["INCONEL",69.0475085,0.063590386,6.288712e-07,409.0],["INS.UTIL.PAPER",-0.0375,0.0009563,3.125e-08,10.0],["INSBLOK-19",0.3383,0.0001114,2.857e-07,19.0],["INSBLOK-19_75H2",1.03,0.001012,2.621e-07,19.0],["INSBOARD 2300",0.296667,0.00029999,8.3333e-08,18.0],["INSBOARD 2300HD",0.2967,0.0003,8.333e-08,26.0],["INSBOARD 2300LW",2.29e-10,0.00075,1.82e-16,14.0],["INSBOARD 2600",0.12125,0.0006,-3.125e-08,18.0],["INSBOARD 2600HD",0.1213,0.0006,-3.125e-08,26.0],["INSBOARD 2800HD",0.12125,0.0006,-3.125e-08,20.0],["INSBOARD 3000",1.41e-09,0.000625,1.5625e-07,12.0],["INSBOARD 3000HD",0.3,0.0001875,2.344e-07,18.0],["INSULATING CEM",0.375,0.000825,0.0,30.0],["INSWOOL BLKT 10#",0.73,-0.0008,7.4999e-07,10.0],["INSWOOL BLKT 12#",0.56,-0.00043,5.4999e-07,12.0],["INSWOOL BLKT 16#",0.39,-0.000124999,3.74999e-07,16.0],["INSWOOL BLKT 4#",0.22,0.00011667,5.8333e-07,4.0],["INSWOOL BLKT 6#",0.1,0.00046667,3.3333e-07,6.0],["INSWOOL BLKT 8#",0.1,0.00035,2.5e-07,0.0],["INSWOOL PAPER",0.25,0.00015,2.5e-07,6.0],["INSWOOL WET-WRAP",0.36667,-0.000225,5.2083e-07,14.0],["INSWOOL-HT PAPER",0.3042,0.00016875,1.77083e-07,6.0],["INSWOOL-HTZ 8#",0.2,0.00066667,8.6234e-16,8.0],["ISO-A-242",91.29,-0.06138,1.762e-05,242.0],["K-23",0.7,0.0004,-9.31e-16,31.0],["KAST-O-LITE 25",2.465,0.0004625,0.0,82.0],["KAST-O-LITE 26L",4.1125,-0.000999999,5.46875e-07,92.0],["KAST-O-LITE 28",2.56,0.000475,0.0,85.0],["KAST-O-LITE 30",2.653125,0.00049375,-3.90625e-09,90.0],["KAST-O-LITE 30 GR",2.94625,0.0005625,-7.8125e-09,97.0],["KAST-SET",3.803125,0.00029375,5.859375e-08,115.0],["KOL 25 (G)",2.653125,0.00049375,-3.90625e-09,92.0],["KORUNDAL",18.5222,-0.003661627,3.014354e-07,191.0],["KORUNDAL PLASTI",6.87,0.02006,-8.76e-06,199.0],["KRONEX 30",96.7,0.0,0.0,131.0],["KRONEX 50",11.28,0.0,0.0,144.0],["KRONEX 70K",12.89,0.0,0.0,162.0],["KRONEX 85 GT",16.93,0.0,0.0,172.0],["KRONEX 85K",16.12,0.0,0.0,169.0],["KRUZITE BRICK",8.4,0.002125,-3.125e-07,162.0],["KRUZITE CASTABL",10.9,-0.0023125,5.4687e-07,155.0],["KRUZITE GR",10.68,-0.002433332,5.83333e-07,142.0],["KRUZITE-70",8.4,0.002125,-3.125e-07,162.0],["KS-4 (P)",3.803125,0.00029375,5.859375e-08,123.0],["KS-4 GR",3.96375,0.0004874999,7.8125e-09,125.0],["KS-4V (P)",3.858125,0.0004624999,1.171875e-08,122.0],["KS-4V GR",3.858125,0.0004624999,1.171875e-08,121.0],["KURUNDAL-XD",34.13354067,-0.01941734672,6.24045291e-06,183.0],["KX-99",9.5,0.00025,1.5625e-07,147.0],["KX-99-BF",9.4,6.875e-05,2.265625e-07,144.0],["KXL",13.347942,-0.0064138,2.254153e-06,115.0],["LADRILLO COMUN",4.8,0.0,0.0,20.0],["LADRILLO T-20",1.35999,0.000475,6.24999e-08,42.0],["LADRILLO T-23",1.58,0.0003124999,1.5625e-07,46.0],["LADRILLO T-26",1.68666,0.000274999,1.458333e-07,50.0],["LANA MINERAL",0.32,0.0003595714,4.071e-07,10.5],["LATON 70-30",193.25,2.6108985,-0.002496,534.0],["LD 60 SK LD60",18.56,-0.00955,4.75e-06,187.0],["LEXAN",16.2,0.0,0.0,74.88],["LO-ABRADE",5.1875,0.001125,-2.3437e-07,132.0],["LO-ABRADE GR",6.475,-0.00025,1.5625e-07,125.0],["LO-ABRADE GR (G)",4.1975,0.00053125,0.0,133.0],["LO-ABRADE GR (P)",4.1975,0.00053125,0.0,133.0],["MAGNAMIX",37.6178,-0.021275,5.6847e-06,160.0],["MAGNECON",23.4685,-0.010865,3.2238e-06,177.0],["MAGNEJAR 15 S",36.2,0.0095,0.0,181.0],["MAGNEL",51.7686,-0.035596,1.1436e-05,178.5],["MAGNESITA (MGO)",277.7,-0.32,0.0001068,227.9],["MAGNEX-OHR",14.50047,0.005142674,2.853426e-06,192.5],["MASROCK",4.483609,0.0004875984,4.548426e-07,180.0],["MC-22",4.055,0.0005125,0.0,125.0],["MC-25",3.96375,0.0004874999,7.8125e-09,125.0],["MC-28-L",3.48875,0.000425,7.8125e-09,109.0],["MC-30",4.43,0.000537375,1.046875e-08,145.0],["MEGACAST 24C",4.055,0.0005125,0.0,127.0],["MERCURIO",53.746,0.10145,-5.04517e-05,830.45],["METALKLEEN",9.0088,-0.000619,7.949e-07,133.0],["METANO (CH4)",0.1906801,0.00057405937,1.13903586e-07,0.0],["METANOL (VAPOR)",0.108457,-2.936228e-06,9.8592e-07,0.0],["MIZZOU",8.15,-0.0006875,1.562e-07,158.0],["MIZZOU CASTABLE",4.43,0.000537375,1.046875e-08,136.0],["MIZZOU GR (G)",4.43,0.000537375,1.046875e-08,140.0],["MM FIBRATEC 12",0.56,-0.00043,5.5e-07,12.0],["MODULO HP INSW",0.2,0.0004999,2.484e-13,11.0],["MODULO HTZ INSW",0.2,0.0004999,2.484e-13,11.0],["MODULO INSW 10",0.73,-0.0008,7.4999e-07,10.0],["MODULO INSW 12",0.56,-0.00043,5.5e-07,12.0],["MODULO INSW 16",0.39,-0.000124999,3.74999e-07,16.0],["MODULO MP FIRED",-5.786e-11,0.0008125,-7.812e-08,18.0],["MONOX D CARBONO",0.1546366,0.0002496785,-2.239435e-08,0.0],["MULLITE-XD",18.224326,-0.0041761746,1.1486225e-06,159.5],["NICHROME_V",63.4109,0.0690576,-2.9183e-08,503.0],["NIQUEL (NI)",82.62,2.127136,-0.0029,537.0],["NITROGENO (N2)",0.15506759,0.0002866956,-5.3793e-08,0.0],["NUCON",27.53,-0.0039807,1.07e-06,190.0],["NUCON-50",16.8142,0.0035166,-9.7039e-07,193.5],["NUCON-60",25.8462,-0.004308,3.9511e-07,192.5],["NUCON-80",28.40955,-0.0015058,-2.2808e-07,189.0],["OX D CALCIO CAO",124.11789,-0.0933439,3.006e-05,212.3],["OX DE CIRCONIO",12.9424197,0.00203054641,-2.5479725e-07,369.64],["OX HNITROSO N2O",0.125654,-0.0009646282,5.0918279e-06,0.0],["OX NITRICO NO2",0.15394989,0.000356647,-2.9517889e-07,0.0],["OX NITROSO (NO)",0.09779142,0.00023122,4.432e-07,0.0],["OXIBAK",67.29494,-0.03713,8.41183e-06,185.0],["OXIBAK-H",103.3108681,-0.07174245891,1.708966091e-05,184.0],["OXIDO FERRICO",21.1,0.0,0.0,327.19],["OXIGENO (O2)",0.164334,0.0002774596,-2.368e-08,0.0],["OXILINE KL",28.62,-0.0093873221,5.459e-06,195.0],["OXILINE-B",88.32,-0.0601121,1.534919e-05,182.0],["PERILEX 80",20.96,0.0,0.0,178.0],["PERILEX 83",22.57,0.0,0.0,184.0],["PERILEX 90",25.7984,0.0,0.0,178.0],["PERIMEX",63.2,-0.0288125,5.23438e-06,180.0],["PLATA (AG)",359.85,13.283,0.0,656.0],["PLATA LIQUIDA",3358.49,-2.7396,0.00213,657.0],["PLOMO (PB)",46.21,1.1669,-0.001581,710.0],["PLOMO LIQUIDO",137.72,-0.0514389,1.981e-05,655.62],["R-4009",5.5,-0.0002999,5.999e-07,136.0],["R-5011",5.05999,0.00284375,7.81249e-09,144.0],["R-6012",8.6,0.00225,-1.5625e-07,155.0],["REFKARB",85.95,-0.051463,1.7071e-05,183.0],["REFKARB HI TEMP",31.677,0.0049198,2.54784e-06,183.0],["REFRACOR 80",18.54,0.0,0.0,184.0],["REFRALUSIT 60",12.89,0.0,0.0,156.0],["RUBY",57.22395,-0.03902477,9.897768e-06,198.5],["RUBY PLASTIC",26.13,-0.01030412,2.857e-06,188.0],["RUBY RAMM MIX",27.59,0.01372034,-9.165e-06,188.0],["SIC A-1",121.0,-0.0031249,-2.34375e-06,161.0],["SILICA (SIO2)",6.0141669,0.0147388,-5.7156e-06,150.48],["SIMAG 55",11.28,0.0,0.0,169.0],["SK CM",13.46,0.0026,0.0,181.0],["SK-7 (G)",1.29,0.0012,-5e-07,55.0],["SK-7 (P)",1.09,0.00105,-4.375e-07,44.0],["SKC AH",6.6625,0.000875,-7.8125e-08,134.0],["STANDARD BRICK",5.7,0.00225,0.0,135.0],["STAR",6.7514559,0.002982616,-9.2053e-08,111.0],["STAR COKE OVEN",6.32,0.0020367351,2.082e-07,85.0],["STEELKON",4.1975,0.00053125,0.0,133.0],["STEELKON (G)",4.1975,0.00053125,0.0,135.0],["STEELKON BF (G)",4.198,0.0005312,0.0,132.0],["SUPER G",4.1125,-0.00075,1.17187e-06,138.0],["SUPER H",4.1125,-0.00075,1.17187e-06,136.0],["SUPER HYBOND",4.1125,-0.00075,1.17187e-06,133.0],["SUPER KAST-SET",3.98,0.0004375,3.124999e-08,120.0],["SUPER PLASTIC",4.1125,-0.00075,1.17187e-06,133.0],["SUPEREX 1600",0.31,0.0003,2.5e-07,14.0],["SUPEREX 2000",0.6057,0.0002143,0.0,24.0],["TERMOLITA PLAST",6.48,0.0028243,-1.058e-06,192.0],["THERMIC TR-19",0.61,0.0002125,3.125e-08,19.0],["THERMIC TR-20",0.4999,0.000275,-1.863e-13,19.0],["UFALA PLASTIC",2.6,0.0096447,-0.0003473,133.0],["UFALA-TI",14.63511,-0.006071987,2.855211e-06,168.0],["ULTRA-GREEN 45",5.05999,0.00284375,7.81249e-09,145.0],["ULTRA-GREEN 57A",10.3,0.0014375,-7.8125e-08,159.0],["ULTRA-GREEN 70",10.29,0.0015125,-9.375e-08,165.0],["ULTRA-GREEN 80",14.41,-0.0005375,4.999e-07,175.0],["ULTRA-GREEN-80A",14.41,-0.0005375,4.999e-07,178.0],["VALENTINE XX",2.99,0.001425,2.639e-07,119.0],["VAPOR DE AGUA",0.086162027,0.000374658,1.5198279e-08,0.0],["VARNON",5.59,0.007218195,-2.435e-06,134.0],["VARNON-BF",6.516688,0.00717872,-2.2671e-06,132.0],["VEGA",8.89896,-0.0016182,1.826577e-06,113.0],["VEGALITE",1.932205,0.00065784,5.8183177e-07,59.0],["VIDRIO",6.0,0.0,0.0,130.0],["VISIL CASTABLE",3.82,0.001612938,-1.825e-07,155.0],["VISIL-SILICA",4.89401,0.001780755,1.3707688e-07,174.3],["VSL-35",0.66999,0.0006625,-2.8125e-07,35.0],["VSL-35 (G)",0.92,0.0008375,-3.4375e-07,39.0],["VSL-50 (G)",1.423,0.001225,-4.583e-07,60.0],["VSL-50 (P)",1.21,0.001025,-3.75e-07,50.0],["VSL-50-G_75H2",2.052,0.002034,-4.79e-07,60.0],["WALSH-XX",4.892022,0.0070123787,-2.378163e-06,125.0],["XSILITE IFB",1.6652,0.001064,3.7e-07,57.0],["YESO",3.0,0.0,0.0,78.0],["ZIRCON",11.143,0.001376,4.1322e-08,218.0]],"conv":[["Abamperes",10.0,"Amperes"],["Abcoulombs",29980000000.0,"StatCoulombs"],["Abfarads",1000000000.0,"Farads"],["Abfarads",1000000000000000.0,"MicroFarads"],["Abhenries",1e-09,"Henries"],["Abhenries",1e-06,"MilliHenries"],["Abohms",1e-09,"Ohms"],["Abohms",1e-15,"MegOhms"],["Abvolts",0.01,"Volts"],["Acres",10.0,"Chains² (Gunters)"],["Acres",160.0,"Vara aproximadamente 5 metros"],["Acres",100000.0,"Links²"],["Acres",0.4047,"Hectómetros² o hectárea"],["Acres",43500.0,"Pies²"],["Acres",4047.0,"Metros²"],["Acres",0.001562,"Millas²"],["Acres",4840.0,"Yardas²"],["Acres-pie",43560.0,"Pie cúbico"],["Acres-pie",325900.0,"Galones"],["Amperes/cm²",6.452,"Amperes/plg²"],["Amperes/cm²",10000.0,"Amperes/m²"],["Amperes/plg²",0.155,"Amperes/cm²"],["Amperes/plg²",1550.0,"Amperes/m²"],["Amperes/m²",0.0001,"Amperes/cm²"],["Amperes/m²",0.0006452,"Amperes/plg²"],["Amperes/hr",3600.0,"Coulombs"],["Amperes/hr",0.03731,"Faradays"],["Amperes-turns",1.257,"Gilberts"],["Amperes-turns/cm",2.54,"Amperes-turns/plg"],["Amperes-turns/cm",100.0,"Amperes-turns/m"],["Amperes-turns/plg",0.3937,"Amperes-turns/cm"],["Amperes-turns/plg",39.37,"Amperes-turns/m"],["Amperes-turns/plg",0.495,"Gilberts/cm"],["Amperes-turns/m",0.01,"Amperes-turns/cm"],["Amperes-turns/m",0.0254,"Amperes-turns/plg"],["Amperes-turns/m",0.01257,"Gilberts/cm"],["Area",0.02471,"Acres (U.S.)"],["Area",119.6,"Yardas²"],["Area",100.0,"Metros²"],["Atmósfera",0.007348,"Toneladas/plg²"],["Atmósfera",1.058,"Toneladas/pie²"],["Atmósfera",76.0,"Centímetros de mercurio a 0°C"],["Atmósfera",33.9,"Pies de agua (a 4°C)"],["Atmósfera",29.92,"Pulgadas de mercurio (a 0° C)"],["Atmósfera",0.76,"Metros de mercurio (a 0° C)"],["Atmósfera",760.0,"Milímetros de mercurio a 0° C"],["Atmósfera",1.0333,"Kilómetro/cm²"],["Atmósfera",10333.0,"Kilómetros/m²"],["Atmósfera",14.7,"Libras/plg²"],["Barriles (u.s. seco)",3.281,"Fanegas"],["Barriles (u.s. seco)",7056.0,"Pulgadas²"],["Barriles (u.s. seco)",105.0,"Cuarto de galón(seco)"],["Barriles (u.s. líquido)",31.5,"Galones"],["Barriles (petróleo)",42.0,"Galones(petróleo)"],["Bars",0.9869,"Atmósfera"],["Bars",10000.0,"Dynas/cm²"],["Bars",10200.0,"Kilómetros/m²"],["Barye",1.0,"Dynas/cm²"],["Bolt (u.s. cloth)",36.576,"Metros"],["BTU",10.409,"Litros-atmósfera"],["BTU",10550000000.0,"Ergs"],["BTU",778.16,"Libras-pie"],["BTU",252.0,"Gramos-calorías"],["BTU",0.0003927,"HP-hr"],["BTU",1055.0,"Joules"],["BTU",0.252,"Kilogramos-calorías"],["BTU",107.58,"Kilogramo-metro"],["BTU",0.0002928,"Kilowatt-hr"],["BTU/hr",0.2162,"Libras-pie/seg"],["BTU/hr",0.07,"Gramo-caloría/seg"],["BTU/hr",0.0003929,"HP"],["BTU/hr",0.2931,"Watts"],["BTU/min",12.96,"Libra-pie/seg"],["BTU/min",0.02356,"HP"],["BTU/min",0.01757,"Kilowatts"],["BTU/min",17.57,"Watts"],["BTU/pie²/min",0.122,"Watts/plg²"],["Bucket (br.seco)",18184.0,"Centímetros cúbicos"],["Bushels",1.2445,"Pie cúbico"],["Bushels",2150.4,"Pulgada cúbica"],["Bushels",0.03524,"metros cúbicos"],["Bushels",35.24,"litros"],["Bushels",4.0,"pecks"],["Bushels",64.0,"pints (secos)"],["Bushels",32.0,"cuartos (secos)"],["Caloría gramo(mean)",0.0039685,"BTU (mean)"],["Candela/cm²",3.146,"Lamberts"],["Candela/plg²",0.487,"Lamberts"],["Centares",1.0,"Metros²"],["Centigramos",0.01,"Gramos"],["Centilitros",0.3382,"Onza (fluido) U.S."],["Centilitros",0.6103,"Pulgadas cúbicas"],["Centilitros",2.705,"Drams"],["Centilitros",0.01,"Litros"],["Centímetros",0.03281,"Pies"],["Centímetros",0.3937,"Pulgadas"],["Centímetros",1e-05,"Kilómetros"],["Centímetros",0.01,"Metros"],["Centímetros",6.214e-06,"Millas"],["Centímetros",10.0,"Milímetros"],["Centímetros",393.7,"Mils"],["Centímetros",0.01094,"Yardas"],["Centímetros",10000.0,"Microns"],["Centímetros",100000000.0,"Unidades Angstrom"],["Centímetros-dinas",0.00102,"Centímetros-gramos"],["Centímetros-dinas",1.02e-08,"Metros-kilogramos"],["Centímetros-dinas",7.376e-08,"Libra-pie"],["Centímetros-gramos",980.7,"Centímetros-dinas"],["Centímetros-gramos",1e-05,"Metros-kilogramos"],["Centímetros-gramos",7.233e-05,"Libra-pie"],["Centímetros de mercurio",0.01316,"Atmósferas"],["Centímetros de mercurio",0.4416,"Pies de agua"],["Centímetros de mercurio",136.0,"Kilogramos/m²"],["Centímetros de mercurio",27.85,"Libras/pie²"],["Centímetros de mercurio",0.1934,"Libras/plg²"],["Centímetros/seg",1.969,"Pies/Minutos"],["Centímetros/seg",0.03281,"Pies/seg"],["Centímetros/seg",0.036,"Kilómetros/hr"],["Centímetros/seg",0.01943,"Nudos"],["Centímetros/seg",0.6,"Metros/min"],["Centímetros/seg",0.02237,"Millas/hr"],["Centímetros/seg",0.0003728,"Millas/min"],["Centímetros/seg/seg",0.03281,"Pies/seg/seg"],["Centímetros/seg/seg",0.036,"Kilómetros/hr/seg"],["Centímetros/seg/seg",0.01,"Metros/seg/seg"],["Centímetros/seg/seg",0.02237,"Millas/hr/seg"],["Centímetros cúbicos",3.531e-05,"Pies cúbicos"],["Centímetros cúbicos",0.06102,"Pulgadas cúbicas"],["Centímetros cúbicos",1e-06,"Metros cúbicos"],["Centímetros cúbicos",1.308e-06,"Yardas cúbicas"],["Centímetros cúbicos",0.0002642,"Galones(u.s.líquidos)"],["Centímetros cúbicos",0.001,"Litros"],["Centímetros cúbicos",2.113e-08,"Pints(u.s.líquidos)"],["Centímetros cúbicos",0.001057,"Cuartos(u.s.líquidos)"],["Centipoise",0.01,"Gramos/centímetro-segundo"],["Centipoise",0.000672,"Libras/pie-segundo"],["Centipoise",2.4,"Libras/pie-hr"],["Chains(gunters)",792.0,"Pulgadas"],["Chains(gunters)",20.12,"Metros"],["Chains(gunters)",22.0,"Yardas"],["Circunferencia",6.283,"Radianes"],["Cords",8.0,"Cordpie"],["Cordspie",16.0,"Pies cúbicos"],["Coulombs",2998000000.0,"Statcoulombs"],["Coulombs",1.036e-05,"Faradays"],["Coulombs/cm²",6.452,"Coulombs/plg²"],["Coulombs/cm²",10000.0,"Coulombs/m²"],["Coulombs/plg²",0.155,"Coulombs/cm²"],["Coulombs/plg²",1550.0,"Coulombs/m²"],["Coulombs/m²",0.0001,"Coulombs/cm²"],["Coulombs/m²",0.6452,"Coulombs/plg²"],["Daltons",1.65e+34,"Gramos"],["Decigramos",0.1,"Gramos"],["Decilitros",0.1,"Litros"],["Decímetros",0.1,"Metros"],["Decagramos",10.0,"Gramos"],["Decalitros",10.0,"Litros"],["Decámetros",100.0,"Metros"],["Días",86400.0,"Segundos"],["Días",14.4,"Minutos"],["Días",24.0,"Horas"],["Dinas",0.00102,"Gramos"],["Dinas",7.233e-05,"Poundals"],["Dinas",2.248e-06,"Libras"],["Dinas",1e-07,"Joules/cm"],["Dinas",1e-05,"Joules/m (Newtons)"],["Dinas",0.000102,"Kilogramos"],["Dinas",7.233e-05,"Poundals"],["Dinas",2.248e-06,"Libras"],["Dinas/cm²",0.0001,"Bars"],["Dinas/cm²",0.01,"Ergs/mm²"],["Dinas/cm²",9.869e-07,"Atmósfera"],["Dinas/cm²",2.953e-05,"Pulgadas de mercurio(a 0°C)"],["Dinas/cm²",0.0004015,"Pulgadas de agua (a 4°C)"],["Dinas/cm²",0.0001,"Bars"],["Drams (apoth o troy)",0.13714,"Onzas (Avdp.)"],["Drams (apoth o troy)",0.125,"Onzas (Avdp.)"],["Drams (U.S.fluido o apoth)",3.6967,"Centímetros cúbicos"],["Drams",1.7718,"Gramos"],["Drams",27.344,"Gains"],["Drams",0.0625,"Onzas"],["Ell",114.3,"Centímetros"],["Ell",45.0,"Pulgadas"],["Em pica",0.167,"Pulgada"],["Em pica",0.4233,"Centímetros"],["Erg/seg",1.0,"Dinas/cm/seg"],["Ergs",9.486e-11,"BTU"],["Ergs",1.0,"Dinas/cm"],["Ergs",7.376e-08,"Libras-pie"],["Ergs",2.389e-08,"Gramos-calorías"],["Ergs",0.00102,"Gramos-centímetros"],["Ergs",3.725e-14,"HP-hr"],["Ergs",1e-07,"Joules"],["Ergs",2.389e-11,"Kilogramos-calorías"],["Ergs",1.02e-08,"Kilogramos-metros"],["Ergs",2.773e-14,"Kilowatt-hr"],["Ergs",2.773e-11,"Watt-hr"],["Ergs/seg",5.668e-09,"Btu/min"],["Ergs/seg",0.0004426,"Pies-libras/min"],["Ergs/seg",7.3756e-08,"Pies-libras/seg"],["Ergs/seg",1.341e-10,"HP"],["Ergs/seg",1.433e-09,"Kilogramo-calorías/min"],["Ergs/seg",1e-10,"Kilowatts"],["Fanegas",1.2445,"Pies cúbicos"],["Fanegas",2150.4,"Pulgadas cúbicas"],["Fanegas",0.03524,"Metros cúbicos"],["Fanegas",35.24,"Litros"],["Fanegas",4.0,"Pecks"],["Fanegas",64.0,"Pints (seco)"],["Fanegas",32.0,"Quarts (seco)"],["Farads",10000.0,"Microfarads"],["Faraday/seg",96500.0,"Ampere(absoluto)"],["Faradays",26.8,"Amperes-caballos"],["Faradays",96490.0,"Coulombs"],["Fathoms",1.8298,"Metros"],["Fathoms",6.0,"Pies"],["Furlongs",0.125,"Millas (U.S.)"],["Furlongs",40.0,"Rods"],["Furlongs",660.0,"Pies"],["Furlongs",201.17,"Metros"],["Galones",378.5,"Centímetros cúbicos"],["Galones",0.1337,"Pies cúbicos"],["Galones",231.0,"Pulgadas cúbicas"],["Galones",0.003785,"Metros cúbicos"],["Galones",0.004951,"Yardas cúbicas"],["Galones",3.785,"Litros"],["Galones de agua",8.337,"Libras de agua"],["Galones/min",0.002228,"Pies cúbicos/seg"],["Galones/min",0.06308,"litros/seg"],["Galones/min",8.0208,"Pies cúbicos/hr"],["Gausses",6.452,"Lines/plg²"],["Gausses",1e-08,"Webers/cm²"],["Gausses",6.452e-08,"Webers/plg²"],["Gausses",0.0001,"Webers/m²"],["Gausses",0.7958,"Amp-rev/cm"],["Gausses",1.0,"Gilbert/cm"],["Gilbert",0.7958,"Ampere-revolución"],["Gilbert/cm",0.7958,"Ampere-revolución/cm"],["Gilbert/cm",2.021,"Ampere-revolución/plg"],["Gilbert/cm",79.58,"Ampere-revolución/m"],["Gills (Británico)",142.07,"Centímetro cúbicos"],["Gills (U.S.)",118.295,"Centímetro cúbicos"],["Gills (U.S.)",0.1183,"Litros"],["Gills (U.S.)",0.25,"Pints (líq.)"],["Grados(ángulo)",0.01111,"Cuadrantes"],["Grados(ángulo)",0.01571,"Radianes"],["Grados(ángulo)",3600.0,"Segundos"],["Grados/seg",0.01745,"Radianes/seg"],["Grados/seg",0.1667,"Revoluciones/min"],["Grados/seg",0.002778,"Revoluciones/seg"],["Gramos",980.7,"Dinas"],["Gramos",9.807e-05,"Joules/cm"],["Gramos",0.03527,"Onzas"],["Gramos",0.03215,"Onzas Troy"],["Gramos",0.002205,"Libras"],["Gramos",0.009807,"Newton"],["Gramos-calorías (IT)",0.003968,"BTU"],["Gramos-centímetro",9.297e-08,"BTU"],["Gramos-centímetro",980.7,"Ergios"],["Gramos-centímetro",7.235e-05,"Pies-libras"],["Gramos-centímetro",9.807e-05,"Joules"],["Gramos-centímetro",2.343e-08,"Kilo-calorías"],["Gramos-centímetro",1e-05,"Kilogramos-metro"],["Gramos/cm",0.0056,"Libras/plg"],["Gramos/cm cúbico",62.43,"Libras/pie cúbico"],["Gramos/cm cúbico",0.03613,"Libras/plg cúbica"],["Gramos/cm cúbico",3.405e-07,"Librasm/mil-pie"],["Hectárea",2.471,"Acres"],["Hectárea",107600.0,"Pie²"],["Horas-amperes",3600.0,"Coulombs"],["Horas-amperes",0.03731,"Faradays"],["Henri",1000.0,"MiliHenris"],["HP",42.44,"BTU/min"],["HP",10.68,"KiloCaloria/min"],["HP",0.07457,"Watts"],["HP (calderas)",33520.0,"BTU/hr"],["HP (calderas)",9.804,"Kilowatts"],["HP-hr",2.544,"BTU"],["HP-hr",1980000.0,"Pies-libras"],["HP-hr",2684000.0,"Joules"],["HP-hr",641.1,"Kilo-calorías"],["HP-hr",273700.0,"Kilogramos-metros"],["HP-hr",0.7455,"Kilovatios-hr"],["Joules",0.000948,"BTU"],["Joules",10000000.0,"Ergios"],["Joules",0.7378,"Libras-pie"],["Joules",0.102,"Kilogramos-metro"],["Joules",0.0002389,"Kilo-calorías"],["Joules",0.0002778,"Watts-hr"],["Kilogramos",980.655,"Dinas"],["Kilogramos",1000.0,"Gramos"],["Kilogramos",70.93,"Poundales"],["Kilogramos",2.205,"Libras"],["Kilogramos",0.001103,"Tonelada (cortas)"],["Kilo-calorías",3.968,"BTU"],["Kilo-calorías",3068.0,"Pies-libras"],["Kilo-calorías",0.00156,"HP-hr"],["Kilo-calorías",4186.0,"Joules"],["Kilo-calorías",427.0,"Kilogramos-metro"],["Kilo-calorías",0.001163,"Kilovatios-hr"],["Kilo-calorías/min",51.47,"Pies-libras/seg"],["Kilo-calorías/min",0.09358,"HP"],["Kilo-calorías/min",0.06977,"Kilovatios"],["Kilómetro",1000.0,"Metros"],["Kilómetro",100000.0,"Centímetros"],["Kilómetro",3281.0,"Pies"],["Kilómetro",39370.0,"Pulgadas"],["Kilómetro",0.6214,"Millas"],["Kilómetro",1094.0,"Yardas"],["Libras",444800.0,"Dinas"],["Libras",7000.0,"Granos"],["Libras",453.6,"Gramos"],["Libras",16.0,"Onzas"],["Libras",32.17,"Poundales"],["Libras-pie",13560000.0,"Centímetros-dinas"],["Libras-pie",13825.0,"Centímetros-gramos"],["Libras-pie",0.1383,"Metro-kilogramos"],["Libras-pie",0.001286,"Btu"],["Libras-pie",13560000.0,"Ergs"],["Libras-pie",0.3241,"Gramo-calorías"],["Libras-pie",5.05e-07,"HP-hr"],["Libras-pie",1.356,"Joules"],["Libras-pie",0.0003241,"Kilogramo-caloría"],["Libras-pie",0.1383,"Kilogramo-metros"],["Libras-pie",3.766e-07,"Kilowatt-hr"],["Libras-pie/min",0.001286,"Btu/min"],["Libras-pie/min",0.01667,"Libras-pie/seg"],["Libras-pie/min",3.03e-05,"HP"],["Libras-pie/min",0.0003224,"Kilogramo-calorías/min"],["Libras-pie/min",2.26e-05,"Kilowatts"],["Libras-pie/seg",4.6263,"Btu/hr"],["Libras-pie/seg",0.07717,"Btu/min"],["Libras-pie/seg",0.001818,"HP"],["Libras-pie/seg",0.01945,"Kilogramo-calorías/min"],["Libras-pie/seg",0.001356,"Kilowatts"],["Metros",100.0,"Centímetros"],["Metros",3.281,"Pies"],["Metros",39.37,"Pulgadas"],["Metros",0.001,"Kilómetros"],["Metros",0.0006214,"Millas"],["Metros",1000.0,"Milímetros"],["Metros",1.094,"Yardas"],["Metros/min",1.667,"Centímetros/seg"],["Metros/min",3.281,"Pies/min"],["Metros/min",0.05468,"Pies/seg"],["Metros/min",0.06,"Kilómetros/hr"],["Metros/min",0.03728,"Millas/hr"],["Metros/seg",196.8,"Pies/min"],["Metros/seg",3.281,"Pies/seg"],["Metros/seg",3.6,"Kilómetros/hr"],["Metros/seg",0.06,"Kilómetros/min"],["Metros/seg",2.237,"Millas/hr"],["Metros/seg",0.03728,"Millas/min"],["Metros cúbicos",28.38,"Bushels(seco)"],["Metros cúbicos",1000000.0,"Centímetros cúbicos"],["Metros cúbicos",35.31,"Pies cúbicos"],["Metros cúbicos",61023.0,"Pulgadas cúbicas"],["Metros cúbicos",1.308,"Yardas cúbicas"],["Metros cúbicos",264.2,"Galones u.s. liquidos"],["Metros cúbicos",1000.0,"Litros"],["Metros cúbicos",2113.0,"Pints(u.s.liquido)"],["Metros cúbicos",1057.0,"Cuartos(u.s.liquido)"],["Millas circulares",5.067e-06,"Centímetros²"],["Millas circulares",0.7854,"Millas²"],["Millas circulares",7.854e-07,"Pulgadas²"],["Pie",30.48,"Centímetros"],["Pie",0.0003048,"Kilómetros"],["Pie",0.3048,"Metros"],["Pie",0.0001645,"Millas(náuticas)"],["Pie",0.0001894,"Millas(stat.)"],["Pie",304.8,"Milímetros"],["Pie",12000.0,"Millas"],["Pie-acre",43560.0,"Pies cúbicos"],["Pie-acre",325900.0,"Galones"],["Pie de agua",0.0295,"Atmósferas"],["Pie de agua",0.8826,"Pulgadas de mercurio"],["Pie de agua",0.03048,"Kilogramo/cm²"],["Pie de agua",304.8,"Kilogramo/m²"],["Pie de agua",62.43,"Libras/pie²"],["Pie de agua",0.4335,"Libras/plg²"],["Pies cúbicos",0.8036,"Bushels(seco)"],["Pies cúbicos",28320.0,"Centímetros cúbicos"],["Pies cúbicos",1728.0,"Pulgadas cúbicas"],["Pies cúbicos",0.02832,"Metros cúbicos"],["Pies cúbicos",0.03704,"Yardas cúbicas"],["Pies cúbicos",7.48052,"Galones(U.S.líquidos)"],["Pies cúbicos",28.32,"Litros"],["Pies cúbicos",59.84,"Pints(u.s.líquidos)"],["Pies cúbicos",29.92,"Cuartos(u.s.líquidos)"],["Pies cúbicos/min",472.0,"Centímetros cúbicos/seg"],["Pies cúbicos/min",0.1247,"Galones/seg"],["Pies cúbicos/min",0.472,"Litros/seg"],["Pies cúbicos/min",62.43,"Fuerza de agua/min"],["Pies cúbicos/min",62.4,"Libras de agua/min"],["Pies cúbicos/seg",0.64632,"Millones de galones/dia"],["Pies cúbicos/seg",448.83,"Galones/min"],["Pies/min",0.508,"Centímetros/seg"],["Pies/min",0.01667,"Pies/seg"],["Pies/min",0.01829,"Kilómetros/hr"],["Pies/min",0.3048,"Metros/min"],["Pies/min",0.01136,"Millas/hr"],["Pies cúbicos/seg",0.646317,"Millones de galones/dia"],["Pies cúbicos/seg",448.831,"Galones/min"],["Pies/seg",30.48,"Centímetros/seg"],["Pies/seg",1.097,"Kilómetros/hr"],["Pies/seg",0.5921,"Nudos"],["Pies/seg",18.29,"Metros/min"],["Pies/seg",0.6818,"Millas/hr"],["Pies/seg",0.01136,"Millas/min"],["Pies/seg/seg",30.48,"Centímetros/seg/seg"],["Pies/seg/seg",1.097,"Kilómetros/hr/seg"],["Pies/seg/seg",0.3048,"Metros/seg/seg"],["Pies/seg/seg",0.6818,"Millas/hr/seg"],["Pies/100 pie",1.0,"Percentaje, grado"],["Pies-candela",10.764,"Lumen/m²"],["Pies-candela",10.764,"Lux"],["Pulgadas",2.54,"Centímetros"],["Pulgadas",0.08333,"Pies"],["Pulgadas",1.578e-05,"Millas"],["Pulgadas",0.02778,"Yardas"],["Pulgadas cúbicas",16.39,"Centímetros cúbicos"],["Pulgadas cúbicas",0.0005787,"Pies cúbicos"],["Pulgadas cúbicas",1.639e-05,"Metros cúbicos"],["Pulgadas cúbicas",2.143e-05,"Yardas cúbicas"],["Pulgadas cúbicas",0.004329,"Galones"],["Pulgadas cúbicas",0.01639,"Litros"],["Pulgadas cúbicas",0.03463,"Pints(U.S.líquido)"],["Pulgadas cúbicas",0.01732,"Cuartos(U.S.líquido)"],["Pulgadas de agua",0.002458,"Atmósferas"],["Pulgadas de agua",0.00254,"Kilogramos/cm²"],["Pulgadas de agua",0.03613,"Libras/plg²"],["Slug",14.59,"Kilogramos"],["Slug",32.17,"Libras"],["Unidad angstrom",3.937e-09,"Pulgadas"],["Unidad angstrom",1e-10,"Metros"],["Unidad angstrom",0.0001,"Microns o (mu)"],["Unidad astronómica",149500000.0,"Kilómetros"],["Watts",3.4129,"BTU/hr"],["Watts",0.05688,"BTU/min"],["Watts",10000000.0,"Ergs/seg"],["Watts",44.27,"Libra-pie/min"],["Watts",0.001341,"HP"],["Watts-hr",3.413,"BTU"],["Watts-hr",860.5,"Calorias"],["Yardas",91.44,"Centímetros"],["Yardas",3.0,"Pies"],["Yardas",36.0,"Pulgadas"],["Yardas",0.9144,"Metros"],["Yardas",0.0005682,"Milla"],["Yardas Cúbicas",764600.0,"Centímetros cúbicos"],["Yardas Cúbicas",27.0,"Pies cúbicos"],["Yardas Cúbicas",46656.0,"Pulgadas cúbicas"],["Yardas Cúbicas",0.7646,"Metros cúbicos"],["Yardas Cúbicas",202.0,"Galones(U.S.líquido)"],["Yardas Cúbicas",764.6,"Litros"],["Yardas Cúbicas",1615.9,"Pints(U.S.líquido)"],["Yardas Cúbicas",807.9,"Cuartos(U.S.líquido)"],["Yardas Cúbicas/min",0.45,"Pies cúbicos/seg"],["Yardas Cúbicas/min",3.367,"Galones/seg"],["Yardas Cúbicas/min",12.74,"Litros/seg\u001a"]],"datasets":{"AIRE":[[32.0,0.166914278],[212.0,0.211908561],[392.0,0.256322273],[572.0,0.298994271],[752.0,0.338763412],[932.0,0.378822839],[1112.0,0.418011408],[1292.0,0.449942835],[1472.0,0.484777119],[1652.0,0.514676546],[1832.0,0.545737116],[2012.0,0.573314258],[464.0,0.283318843],[1022.0,0.408141694],[1400.0,0.484777119]],"ALUMINA":[[212.0,209.0457477],[752.0,90.00513385],[1112.0,63.2927696],[1832.0,43.54975272],[2192.0,38.32100852],[2552.0,38.03668689],[2912.0,42.10040585],[3632.0,62.412066]],"AMONIACO":[[32.0,0.152399993],[212.0,0.231357703],[392.0,0.322217127],[572.0,0.422365694],[752.0,0.534125688],[932.0,0.644434254]],"ARGON":[[100.4,0.12424228],[109.4,0.128596565],[129.2,0.131789708],[145.4,0.133531422],[579.2,0.202329133],[595.4,0.204070847],[730.4,0.222939418],[744.8,0.227293703],[939.2,0.250806845],[957.2,0.252548559],[1189.4,0.278093701],[1207.4,0.2821577],[1405.4,0.310605699],[1427.0,0.307702842],[1668.2,0.342537126],[1680.8,0.338182841],[1697.0,0.338473126],[1702.4,0.341085698]],"CAO":[[212.0,105.6844318],[1112.0,57.48844746],[1832.0,54.00030644]],"CO":[[48.2,0.164882278],[73.4,0.172719992],[102.2,0.18026742],[132.602,0.188743762],[160.988,0.197045933],[184.244,0.20380959],[219.128,0.213998618],[392.0,0.251097131],[572.0,0.2943497],[752.0,0.334699412],[932.0,0.371565696],[1112.0,0.404948552],[1292.0,0.439782836],[1472.0,0.471714263],[1652.0,0.505097118]],"CO2":[[34.196,0.101599995],[58.55,0.108973252],[84.884,0.117014166],[100.832,0.121890965],[141.566,0.134953822],[165.776,0.143168907],[194.648,0.15306765],[223.682,0.162966392],[80.6,0.113211423],[260.6,0.168365706],[440.6,0.226422846],[620.6,0.281577129],[800.6,0.339634269],[980.6,0.391885695],[1160.6,0.441234264],[1340.6,0.487679976],[1520.6,0.519611403],[1700.6,0.539931402],[32.0,0.103341709],[212.0,0.160527992],[392.0,0.218585132],[572.0,0.273449129],[752.0,0.321926841],[932.0,0.367791982],[1112.0,0.409012551],[1292.0,0.449071978],[1472.0,0.487679976],[1652.0,0.52251426],[1832.0,0.557348544],[2012.0,0.5886994]],"DV-38":[[200.0,21.3934080747422],[300.0,20.7332426058711],[400.0,20.1136814107886],[500.0,19.5347244894365],[600.0,18.996371841873],[700.0,18.4986234680109],[800.0,18.0414793679665],[900.0,17.6249395416817],[1000.0,17.2490039891563],[1100.0,16.9136727103614],[1200.0,16.618945705326],[1300.0,16.3648229740793],[1400.0,16.1513045165921],[1500.0,15.9783903328353],[1600.0,15.8460804228671],[1700.0,15.7543747866293],[1800.0,15.7032734241802],[1900.0,15.6927763354615],[2000.0,15.7228835205315],[2100.0,15.7935949793318],[2200.0,15.9049107119063]],"FE2O3":[[115.16,6.503337277]],"FREON":[[302.0,0.077796568],[392.0,0.092020567],[482.0,0.111179423]],"H2":[[33.836,1.153885658],[40.442,1.162594229],[68.504,1.208749655],[124.304,1.292642222],[154.886,1.334443363],[183.758,1.379147361],[214.25,1.425302787],[32.0,1.169851371],[212.0,1.448525643],[392.0,1.701074202],[572.0,1.94491419],[752.0,2.194559892],[932.0,2.426788452],[1112.0,2.67062844],[1292.0,2.917371285],[1472.0,3.13508556],[1652.0,3.381828405],[1832.0,3.616959822],[2012.0,3.817256955],[2192.0,4.020456945]],"H2OVAP":[[212.0,0.170978277],[392.0,0.23222856],[572.0,0.308573699],[752.0,0.365759982],[932.0,0.449362264],[1112.0,0.517289117],[1292.0,0.598278828],[1472.0,0.667076539],[1652.0,0.746034249],[1832.0,0.824411388]],"HELIO":[[45.554,1.001485665],[73.724,1.037481092],[132.422,1.104537089],[160.574,1.135597658],[187.862,1.160852514],[216.824,1.188429656],[165.146,1.168399943],[342.23,1.410788502],[553.946,1.680754203],[741.596,1.950719904],[846.158,2.040708471],[987.458,2.249714175]],"INSBK19H":[[200.0,1.24460072388138],[300.0,1.35885576563487],[400.0,1.47835420417323],[500.0,1.60309603949645],[600.0,1.73308127160453],[700.0,1.86830990049748],[800.0,2.00878192617529],[900.0,2.15449734863796],[1000.0,2.30545616788368],[1100.0,2.46165838391607],[1200.0,2.62310399673152],[1300.0,2.78979300633364],[1400.0,2.96172541272244],[1500.0,3.13890121589066],[1600.0,3.32132041584919],[1700.0,3.50898301258712],[1800.0,3.70188900611174],[1900.0,3.90003839642304],[2000.0,4.10343118351739],[2100.0,4.31206736739841],[2200.0,4.52594694806612]],"MAGNESIT":[[212.0,188.7202182],[32.0,290.340931],[116.6,420.9971239],[572.0,110.3306633],[932.0,75.49086116],[1112.0,60.96965381],[752.0,113.506744],[1832.0,45.7688484],[3632.0,97.085436]],"METANO":[[32.0,0.210457133],[212.0,0.314959985],[392.0,0.436879979],[572.0,0.563154258],[752.0,0.687977109],[932.0,0.821508531],[1112.0,0.963748524],[1292.0,1.13211423]],"METANOL":[[150.8,0.125983994],[174.56,0.136434279],[185.18,0.140788565],[229.82,0.157915421]],"N2O":[[-97.24,0.07868],[32.0,0.102057],[212.0,0.14691]],"N2O3":[[50.054,0.17010742],[78.44,0.17904822],[104.684,0.187060105],[135.608,0.196000905],[163.85,0.20482559],[192.146,0.213679304],[218.786,0.221487989]],"NITROGEN":[[87.26,0.185202277],[122.36,0.193330276],[600.8,0.308283413],[759.2,0.346891412],[783.86,0.346891412],[917.6,0.371565696],[935.6,0.374468553],[1292.0,0.441234264],[1306.4,0.438331407],[1558.4,0.481874262],[1581.8,0.490582833],[32.0,0.16604342],[212.0,0.210457133],[392.0,0.25312913],[572.0,0.293478843],[752.0,0.32947427],[932.0,0.364308554],[1112.0,0.394207981],[1292.0,0.423526836],[1472.0,0.450233121],[1652.0,0.475778262],[1832.0,0.499291404],[2012.0,0.49348569],[80.6,0.177074277],[260.6,0.220617132],[440.6,0.281577129],[620.6,0.307702842],[800.6,0.351245697],[980.6,0.391885695],[1160.6,0.426719979],[1340.6,0.455748549],[1520.6,0.478971405],[1700.6,0.496388547]],"NO":[[36.68,0.106505823],[63.662,0.11489508],[86.774,0.12241348],[112.19,0.130947879],[138.956,0.140178965],[167.144,0.149497136],[195.998,0.159802278],[221.81,0.169410735]],"OXIGENO":[[30.326,0.168917249],[64.22,0.17925142],[123.548,0.198207076],[156.182,0.209034733],[184.28,0.219078618],[217.94,0.230951303],[80.6,0.182879991],[260.6,0.238034274],[440.6,0.284479986],[620.6,0.328022841],[800.6,0.368662839],[980.6,0.409302837],[1160.6,0.449942835],[1340.6,0.490582833],[1520.6,0.531222831],[1700.6,0.568959972],[32.0,0.167785135],[212.0,0.219165704],[392.0,0.268514273],[572.0,0.314959985],[752.0,0.362857125],[932.0,0.407851409],[1112.0,0.446749692],[1292.0,0.484486833],[1472.0,0.523675403],[1652.0,0.559961115],[1832.0,0.594505114],[2012.0,0.630210255]],"SILICE":[[32.0,5.02763865],[212.0,11.03306633],[752.0,13.06492582],[1832.0,13.93869474]],"SO2":[[80.6,0.066765711],[260.6,0.098697138],[440.6,0.136434279],[620.6,0.17417142],[800.6,0.211908561]],"TIO2":[[212.0,45.29035589],[392.0,34.63869663],[752.0,27.14924871],[1112.0,25.08271586],[1472.0,23.51547953]],"VEGALITE":[[0.0,1.8799999999992],[200.0,2.06999999999971],[400.0,2.29999999999927],[600.0,2.58000000000175],[800.0,2.86999999999898],[1000.0,3.20000000000073],[1200.0,3.59999999999854],[1400.0,4.0],[1600.0,4.45999999999913],[1800.0,4.95999999999913],[2000.0,5.5],[2200.0,6.19999999999709],[2400.0,6.80000000000291],[2600.0,7.59999999999854],[2800.0,8.39999999999418]],"VSL-50":[[200.0,2.43515177561494],[300.0,2.61500055230499],[400.0,2.78525783281657],[500.0,2.94592361714604],[600.0,3.09699790529339],[700.0,3.23848069726228],[800.0,3.37037199305269],[900.0,3.49267179266099],[1000.0,3.60538009609445],[1100.0,3.70849690334217],[1200.0,3.80202221441141],[1300.0,3.88595602930218],[1400.0,3.96029834801084],[1500.0,4.02504917054466],[1600.0,4.0802084968891],[1700.0,4.12577632706234],[1800.0,4.16175266104983],[1900.0,4.18813749886613],[2000.0,4.2049308404894],[2100.0,4.21213268594147],[2200.0,4.20974303521507]],"ZRO2":[[212.0,13.64743843],[752.0,14.22995105],[1832.0,15.97055422],[392.0,13.58502637],[1112.0,14.54201138],[1472.0,15.24241345],[2192.0,16.58080553],[2552.0,16.92753923],[2732.0,15.9497502]]},"cases":{"EJEMPLO1":"Horno de secado a 300°C\r\nACERO AL CARBON\r\n 5.00000000000000E+0002\r\n 3.33000000000000E+0002\r\n-8.33000000000084E-0002\r\n 0.00000000000000E+0000\r\n0.25\r\nINSWOOL BLKT 8#\r\n 8.00000000000000E+0000\r\n 1.00000000000023E-0001\r\n 3.50000000000072E-0004\r\n 2.49999999999816E-0007\r\n1.5\r\nVSL-50 (G)\r\n 6.00000000000000E+0001\r\n 1.42300000000068E+0000\r\n 1.22499999999981E-0003\r\n-4.58300000000158E-0007\r\n12\r\n             \r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n0.000\r\n             \r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n0.000\r\n             \r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n0.000\r\n             \r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n0.000\r\n             \r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n0.000\r\n             \r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n0.000\r\n             \r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n0.000\r\n2\r\n1\r\n30\r\n0\r\n.94\r\n100\r\n300\r\n3.25\r\n5.00\r\n1\r\n","EJEMPLO2":"Tuberia de Vapor Aislada\r\nALUMINIO (AL)\r\n 1.65000000000000E+0002\r\n 6.76990000000224E+0002\r\n 2.95255299999917E+0000\r\n-1.92400000000070E-0003\r\n0.025\r\nINSWOOL BLKT 8#\r\n 8.00000000000000E+0000\r\n 1.00000000000023E-0001\r\n 3.50000000000072E-0004\r\n 2.49999999999816E-0007\r\n0.000\r\nACEROS 304-316\r\n 5.20000000000000E+0002\r\n 1.04199999999983E+0001\r\n 1.64934399999993E-0001\r\n 0.00000000000000E+0000\r\n.1355\r\n             \r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n0.000\r\n             \r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n0.000\r\n             \r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n0.000\r\n             \r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n0.000\r\n             \r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n0.000\r\n             \r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n0.000\r\n             \r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n0.000\r\n3\r\n4\r\n25\r\n0\r\n0.055\r\n40\r\n270\r\n5.00\r\n.0335\r\n0\r\n","DUCTO_PE":"Actual.Dat\r\nALUMINIO (AL)\r\n 1.65000000000000E+0002\r\n 6.76990000000224E+0002\r\n 2.95255299999917E+0000\r\n-1.92400000000070E-0003\r\n0.062\r\nLANA MINERAL\r\n 1.05000000000000E+0001\r\n 3.20000000000164E-0001\r\n 3.59571400000203E-0004\r\n 4.07100000000046E-0007\r\n3\r\nINSWOOL BLKT 8#\r\n 0.00000000000000E+0000\r\n 1.00000000000023E-0001\r\n 3.50000000000072E-0004\r\n 2.49999999999816E-0007\r\n2\r\nACEROS 304-316\r\n 5.20000000000000E+0002\r\n 1.04199999999983E+0001\r\n 1.64934399999993E-0001\r\n 0.00000000000000E+0000\r\n0.125\r\n             \r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n0.000\r\n             \r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n0.000\r\n             \r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n0.000\r\n             \r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n0.000\r\n             \r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n0.000\r\n             \r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n 0.00000000000000E+0000\r\n0.000\r\n2\r\n4\r\n30\r\n1\r\n0.92\r\n100\r\n500\r\n2.75\r\n5.00\r\n1\r\n"}};
+const $ = id => document.getElementById(id);
+const fmt = (v, d = 2) => v == null || !isFinite(v) ? '—' : Number(v).toLocaleString('es-MX', { minimumFractionDigits: d, maximumFractionDigits: d });
+const fsig = (v, s = 4) => { if (v == null || !isFinite(v)) return '—'; if (v === 0) return '0'; const a = Math.abs(v); return (a >= 1e6 || a < 1e-3) ? v.toExponential(s - 1).replace('e', '×10^').replace('+', '') : Number(v.toPrecision(s)).toLocaleString('es-MX', { maximumFractionDigits: 8 }); };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 2200); }
+const store = { get(k, d) { try { const v = localStorage.getItem('transcal:' + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('transcal:' + k, JSON.stringify(v)); } catch (e) { } } };
+const tip = t => `<span class="tip" tabindex="0" data-tip="${esc(t)}">?</span>`;
+// escala de color térmica: gris (frío) → amarillo → naranja (caliente)
+function heat(f) { f = Math.max(0, Math.min(1, f)); const stops = [[110, 116, 124], [255, 198, 41], [255, 122, 40]]; const s = f < .5 ? 0 : 1, t = f < .5 ? f * 2 : (f - .5) * 2; const a = stops[s], b = stops[s + 1]; return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(',')})`; }
+
+let downloads = null;
+if (window.claude && claude.use) claude.use('downloads').then(d => { downloads = d; }).catch(() => { });
+async function saveFile(filename, text) {
+  if (!downloads) {
+    // Fuera de Claude (archivo propio, GitHub Pages, Netlify…): descarga normal del navegador
+    try { const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' })); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000); toast('Descargando ' + filename); return; } catch (e) { }
+    try { await navigator.clipboard.writeText(text); toast('La descarga no está disponible aquí: se copió el contenido'); } catch (e) { toast('No se pudo descargar ni copiar'); } return;
+  }
+  try { await downloads.save({ filename, data: text }); toast('Archivo guardado'); }
+  catch (e) { if (e && e.code !== 'declined') toast('No se pudo guardar: ' + (e.message || e.code)); }
+}
+
+const VIEWS = ['analisis', 'comparar', 'graficas', 'materiales', 'flama', 'ajuste', 'conversiones'];
+function route() {
+  const h = location.hash.replace('#', ''); const v = VIEWS.includes(h) ? h : 'analisis';
+  VIEWS.forEach(n => $('v-' + n).classList.toggle('on', n === v));
+  document.querySelectorAll('#tabs a').forEach(a => a.setAttribute('aria-current', a.getAttribute('href') === '#' + v ? 'page' : 'false'));
+  if (v === 'graficas') drawGraph();
+  if (v === 'comparar') renderCompare();
+  if (v === 'materiales') drawK();
+}
+window.addEventListener('hashchange', route);
+
+let MATS = store.get('mats', null) || DATA.mats.map(m => ({ name: m[0], a: m[1], b: m[2], c: m[3], rho: m[4] }));
+const saveMats = () => store.set('mats', MATS);
+function refreshDatalist() { $('matlist').innerHTML = MATS.map(m => `<option value="${esc(m.name)}"></option>`).join(''); }
+const findMat = n => MATS.find(m => m.name.toUpperCase() === String(n).trim().toUpperCase());
+
+function niceTicks(lo, hi, n = 6) {
+  if (!isFinite(lo) || !isFinite(hi)) return [0, 1];
+  if (lo === hi) { lo -= 1; hi += 1; }
+  const raw = (hi - lo) / n, p = 10 ** Math.floor(Math.log10(raw)), m = raw / p;
+  const step = (m < 1.5 ? 1 : m < 3 ? 2 : m < 7 ? 5 : 10) * p;
+  const t = []; for (let v = Math.floor(lo / step) * step; v <= hi + step * 0.5; v += step) t.push(+v.toPrecision(12));
+  return t;
+}
+function chart(svg, series, opt) {
+  const W = 760, H = +svg.getAttribute('viewBox').split(' ')[3], m = { l: 64, r: 18, t: 14, b: 46 };
+  const all = series.flatMap(s => s.pts).filter(p => isFinite(p[0]) && isFinite(p[1]));
+  if (!all.length) { svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" text-anchor="middle">Sin datos para graficar</text>`; return; }
+  const xs = all.map(p => p[0]), ys = all.map(p => p[1]);
+  const xt = niceTicks(Math.min(...xs), Math.max(...xs)), yt = niceTicks(Math.min(...ys), Math.max(...ys));
+  const x0 = xt[0], x1 = xt[xt.length - 1], y0 = yt[0], y1 = yt[yt.length - 1];
+  const X = v => m.l + (v - x0) / (x1 - x0 || 1) * (W - m.l - m.r), Y = v => H - m.b - (v - y0) / (y1 - y0 || 1) * (H - m.t - m.b);
+  let s = '';
+  yt.forEach(v => s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="#34373c"/><text x="${m.l - 8}" y="${Y(v) + 4}" text-anchor="end">${fsig(v, 4)}</text>`);
+  xt.forEach(v => s += `<text x="${X(v)}" y="${H - m.b + 17}" text-anchor="middle">${fsig(v, 4)}</text>`);
+  s += `<line x1="${m.l}" x2="${W - m.r}" y1="${H - m.b}" y2="${H - m.b}" stroke="#55585e"/>`;
+  s += `<text class="ttl" x="${(m.l + W - m.r) / 2}" y="${H - 8}" text-anchor="middle">${esc(opt.xl)}</text>`;
+  s += `<text class="ttl" transform="translate(15 ${(m.t + H - m.b) / 2}) rotate(-90)" text-anchor="middle">${esc(opt.yl)}</text>`;
+  series.forEach(se => {
+    const pts = se.pts.filter(p => isFinite(p[0]) && isFinite(p[1]));
+    if (se.area && pts.length > 1) s += `<polygon fill="${se.color}" opacity=".10" points="${X(pts[0][0])},${H - m.b} ${pts.map(p => X(p[0]).toFixed(1) + ',' + Y(p[1]).toFixed(1)).join(' ')} ${X(pts[pts.length - 1][0])},${H - m.b}"/>`;
+    if (se.line !== false && pts.length > 1) s += `<polyline fill="none" stroke="${se.color}" stroke-width="2.4" stroke-linejoin="round" points="${pts.map(p => X(p[0]).toFixed(1) + ',' + Y(p[1]).toFixed(1)).join(' ')}"/>`;
+    if (se.dots) pts.forEach(p => s += `<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="3.8" fill="${se.color}" stroke="#17181b" stroke-width="1.5"><title>${fsig(p[0])}, ${fsig(p[1])}</title></circle>`);
+  });
+  svg.innerHTML = s;
+}
+
+// ---------- Análisis ----------
+let CASE = null, LAST = null;
+function setSeg(id, v) { document.querySelectorAll('#' + id + ' [data-v]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v == v))); }
+function loadCase(c) {
+  CASE = JSON.parse(JSON.stringify(c));
+  $('title').value = CASE.title; $('Lm').value = CASE.Lm; $('Dm').value = CASE.Dm;
+  $('TaC').value = CASE.TaC; $('V').value = CASE.V; $('eps').value = CASE.eps; $('TCFC').value = CASE.TCFC; $('TCCC').value = CASE.TCCC;
+  setSeg('mode', CASE.mode); setSeg('geom', CASE.geom); setSeg('dir', CASE.dir);
+  renderLayers(); recalc();
+}
+const ICON = {
+  up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M6 11l6-6 6 6"/></svg>',
+  down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M6 13l6 6 6-6"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+};
+function layerColor(i) {
+  if (LAST && LAST.layers[i] && CASE.layers.length === LAST.layers.length) { const r = LAST, lo = Math.min(...r.T_C), hi = Math.max(...r.T_C), l = r.layers[i]; return heat(((l.Tin + l.Tout) / 2 - lo) / ((hi - lo) || 1)); }
+  return heat(CASE.layers.length > 1 ? i / (CASE.layers.length - 1) : .5);
+}
+function renderLayers() {
+  const n = CASE.layers.length;
+  $('layers').innerHTML = CASE.layers.map((l, i) => `<div class="lay${CASE.mode === 3 && !(l.xin > 0) ? ' unk' : ''}" data-i="${i}">
+    <div class="chip" style="background:${layerColor(i)}">${i + 1}</div>
+    <div><input type="text" list="matlist" value="${esc(l.name)}" data-k="name" aria-label="Material de la capa ${i + 1}"><div class="meta">ρ ${fsig(l.rho)} · a ${fsig(l.a)} · b ${fsig(l.b)} · c ${fsig(l.c)}</div></div>
+    <div><input type="number" step="any" min="0" value="${l.xin}" data-k="xin" aria-label="Espesor de la capa ${i + 1} en pulgadas"><div class="meta">${CASE.mode === 3 && !(l.xin > 0) ? 'se calcula' : 'pulgadas'}</div></div>
+    <div class="acts"><button type="button" class="icon" data-mv="-1" aria-label="Subir capa ${i + 1}" ${i === 0 ? 'disabled style="opacity:.3"' : ''}>${ICON.up}</button><button type="button" class="icon" data-mv="1" aria-label="Bajar capa ${i + 1}" ${i === n - 1 ? 'disabled style="opacity:.3"' : ''}>${ICON.down}</button><button type="button" class="icon del" data-del="1" aria-label="Quitar capa ${i + 1}">${ICON.x}</button></div></div>`).join('');
+  $('layhint').textContent = CASE.mode === 3 ? 'Deja en 0 el espesor de la capa que quieres calcular.' : 'Escribe para buscar en el catálogo de 422 materiales.';
+  renderStrip();
+}
+function renderStrip() {
+  const ls = (LAST && LAST.layers.length === CASE.layers.length) ? LAST.layers.map(l => ({ name: l.name, x: l.xin })) : CASE.layers.map(l => ({ name: l.name, x: l.xin }));
+  const tot = ls.reduce((s, l) => s + l.x, 0) || 1;
+  $('strip').innerHTML = ls.map((l, i) => `<div style="flex:${Math.max(l.x / tot, .06)};background:${layerColor(i)}" title="${esc(l.name)} · ${fmt(l.x, 3)} in">${i + 1}</div>`).join('');
+}
+$('layers').addEventListener('change', e => {
+  const row = e.target.closest('.lay'); if (!row) return; const L = CASE.layers[+row.dataset.i];
+  if (e.target.dataset.k === 'name') {
+    const m = findMat(e.target.value);
+    if (m) Object.assign(L, { name: m.name, a: m.a, b: m.b, c: m.c, rho: m.rho });
+    else { L.name = e.target.value; toast('Ese material no está en el catálogo; se conservan sus coeficientes'); }
+  } else L.xin = +e.target.value || 0;
+  recalc(); renderLayers();
+});
+$('layers').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return; const i = +b.closest('.lay').dataset.i;
+  if (b.dataset.del) CASE.layers.splice(i, 1);
+  else if (b.dataset.mv) { const j = i + +b.dataset.mv; if (j < 0 || j >= CASE.layers.length) return; [CASE.layers[i], CASE.layers[j]] = [CASE.layers[j], CASE.layers[i]]; }
+  recalc(); renderLayers();
+});
+$('addLayer').onclick = () => { if (CASE.layers.length >= 10) return toast('El máximo es de 10 capas'); const m = findMat('LANA MINERAL') || MATS[0]; CASE.layers.push({ name: m.name, a: m.a, b: m.b, c: m.c, rho: m.rho, xin: 1 }); recalc(); renderLayers(); };
+['title', 'Lm', 'Dm', 'TaC', 'V', 'eps', 'TCFC', 'TCCC'].forEach(id => $(id).addEventListener('input', () => { CASE[id] = id === 'title' ? $(id).value : +$(id).value; recalc(); renderStrip(); }));
+document.querySelectorAll('#mode [data-v]').forEach(b => b.onclick = () => { CASE.mode = +b.dataset.v; setSeg('mode', CASE.mode); recalc(); renderLayers(); });
+document.querySelectorAll('#geom [data-v]').forEach(b => b.onclick = () => { CASE.geom = +b.dataset.v; setSeg('geom', CASE.geom); recalc(); renderLayers(); });
+document.querySelectorAll('#dir [data-v]').forEach(b => b.onclick = () => { CASE.dir = +b.dataset.v; setSeg('dir', CASE.dir); recalc(); renderLayers(); });
+Object.keys(DATA.cases).forEach(k => { const c = TC.parseCAS(DATA.cases[k]); $('ex').insertAdjacentHTML('beforeend', `<option value="${k}">${esc(c.title === 'Actual.Dat' ? k : c.title)}</option>`); });
+$('ex').onchange = () => { if ($('ex').value) loadCase(TC.parseCAS(DATA.cases[$('ex').value])); };
+$('casfile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const txt = new TextDecoder('windows-1252').decode(await f.arrayBuffer());
+  try { const c = TC.parseCAS(txt); if (!c.layers.length || !(c.geom >= 1 && c.geom <= 5)) throw 0; loadCase(c); $('ex').value = ''; toast('Caso abierto: ' + f.name); }
+  catch (er) { toast('Ese archivo no tiene el formato .CAS de Transcal'); }
+};
+const casName = () => (CASE.title || 'CASO').replace(/[^\w\- ]+/g, '').trim().slice(0, 40) || 'CASO';
+$('saveCas').onclick = () => saveFile(casName() + '.CAS.txt', TC.writeCAS(CASE));
+$('copyCas').onclick = async () => { try { await navigator.clipboard.writeText(TC.writeCAS(CASE)); toast('Contenido .CAS copiado'); } catch (e) { toast('No se pudo copiar'); } };
+
+function recalc() {
+  const g = TC.GEOM[CASE.geom], cyl3 = g.cyl && CASE.mode === 3;
+  $('fL').hidden = cyl3; $('Llbl').textContent = g.cyl ? 'Diámetro exterior [m]' : g.Llabel;
+  $('fDir').hidden = !cyl3;
+  $('Dlbl').textContent = CASE.dir === 0 ? 'Diámetro donde inicia la capa desconocida [m]' : 'Diámetro exterior del cilindro [m]';
+  $('TCFlbl').textContent = CASE.mode === 2 ? 'Cara fría [°C] · se calcula' : 'Cara fría [°C]';
+  $('TCClbl').textContent = CASE.mode === 1 ? 'Cara caliente [°C] · se calcula' : 'Cara caliente [°C]';
+  $('TCFC').disabled = CASE.mode === 2; $('TCCC').disabled = CASE.mode === 1;
+  $('rtitle').textContent = CASE.title || 'Resultados'; $('gcase').textContent = CASE.title;
+  let r;
+  try { r = TC.analyze(CASE); $('rerr').hidden = true; }
+  catch (e) { $('rerr').hidden = false; $('rerr').textContent = e.message; LAST = null; ['tiles', 'restbl', 'laytbl', 'schema'].forEach(id => $(id).innerHTML = ''); return; }
+  LAST = r;
+  if (CASE.mode === 2) $('TCFC').value = +r.TCF.toFixed(2);
+  if (CASE.mode === 1) $('TCCC').value = +r.TCC.toFixed(2);
+  $('rgeom').textContent = g.cyl ? `${g.name} · Ø exterior ${fmt(r.Dout_m, 4)} m` : `${g.name} · ${fmt(CASE.Lm, 2)} m`;
+  const unk = r.unknown >= 0 ? r.layers[r.unknown] : null;
+  const T = (k, v, unit, u, c, help) => `<div class="tile" style="--c:${c}"><div class="k">${k}${tip(help)}</div><div class="v">${v}<small>${unit}</small></div><div class="u">${esc(u)}</div></div>`;
+  $('tiles').innerHTML = [
+    T('Cara fría (exterior)', fmt(r.TCF, 1), '°C', CASE.mode === 2 ? 'Calculada' : 'Dato', 'var(--cold)', 'Temperatura de la superficie exterior. Arriba de unos 60 °C ya puede causar quemaduras al tocarla.'),
+    T('Cara caliente (interior)', fmt(r.TCC, 1), '°C', CASE.mode === 1 ? 'Calculada' : 'Dato', 'var(--hot)', 'Temperatura del lado del proceso: horno, vapor, gases.'),
+    T('Calor perdido', fmt(r.q, 2), '', `BTU/hr·ft²  ·  ${fmt(r.q * 3.15459, 1)} W/m²`, 'var(--yel)', 'Energía que se escapa por cada pie cuadrado de superficie exterior, cada hora. Es lo que se paga en combustible.'),
+    unk ? T('Espesor necesario', fmt(unk.xin, 3), 'in', `${unk.name} · ${fmt(unk.xin * 25.4, 1)} mm`, 'var(--yel)', 'Espesor de la capa desconocida para cumplir las dos temperaturas que capturaste.')
+      : T('Pérdida por radiación', fmt(r.pctRad, 1), '%', `${fmt(r.qr, 2)} de ${fmt(r.q, 2)} BTU/hr·ft²`, '#c9c7bf', 'Parte del calor que sale como radiación (como el calor de una brasa). El resto se lo lleva el aire por convección.'),
+  ].join('');
+  const rows = [
+    ['Producto Grashof-Prandtl', 'Indica qué tan fuerte es el movimiento natural del aire caliente. Arriba de 10¹⁰ el flujo es turbulento.', fsig(r.grpr, 5), ''],
+    ['Régimen en la cara fría', 'Laminar: el aire sube ordenado. Turbulento: se arremolina y se lleva más calor.', `<span class="badge ${r.turbulent ? 'turb' : 'lam'}">${r.turbulent ? 'Turbulento' : 'Laminar'}</span>`, ''],
+    ['Número de Nusselt', 'Cuántas veces más calor transfiere el aire en movimiento que el aire quieto.', fmt(r.nu, 2), ''],
+    ['Coef. global de transferencia', 'Calor perdido por cada grado de diferencia entre la superficie y el aire (convección + radiación).', fmt(r.U, 4), 'BTU/hr·ft²·°F', fmt(r.U * 5.67826, 3) + ' W/m²·K'],
+    ['Flujo de calor total', 'Calor que se escapa por cada pie cuadrado de superficie.', fmt(r.q, 2), 'BTU/hr·ft²', fmt(r.q * 3.15459, 1) + ' W/m²'],
+    ['Gas natural equivalente', 'Gas natural que habría que quemar para reponer esa pérdida.', fmt(r.gas, 4), 'm³ std/hr·ft²', fmt(r.gas * 10.7639, 4) + ' m³/hr·m²'],
+    ['Calor total acumulado', 'Energía que se queda guardada en las capas al calentarse (importa en arranques y paros).', fmt(r.qaTot, 2), 'Btu/ft²', fmt(r.qaTot * 11.3565, 0) + ' kJ/m²'],
+    ['Gas equivalente (acumulado)', 'Gas natural necesario para calentar las capas desde la temperatura ambiente.', fmt(r.gasStored, 4), 'm³ std/ft²', fmt(r.gasStored * 10.7639, 3) + ' m³/m²'],
+    ['Pérdidas por convección', 'Calor que se lleva el aire al pasar por la superficie.', fmt(r.qc, 2), 'BTU/hr·ft²', fmt(r.qc * 3.15459, 1) + ' W/m²'],
+    ['Pérdidas por radiación', 'Calor emitido como radiación infrarroja.', fmt(r.qr, 2), 'BTU/hr·ft²', fmt(r.qr * 3.15459, 1) + ' W/m²'],
+    ['% del calor perdido por radiación', '', fmt(r.pctRad, 2), '%'],
+  ];
+  if (CASE.V > 0) rows.splice(3, 0, ['Coef. de convección forzada', 'Con viento, el original usa h = 1 + 0.33·V (V en MPH).', fmt(r.h, 3), 'BTU/hr·ft²·°F']);
+  $('restbl').innerHTML = '<thead><tr><th>Resultado</th><th class="n">Valor</th><th>Unidad</th><th>Sistema Internacional</th></tr></thead><tbody>' + rows.map(x => `<tr><td><span class="lbl">${x[0]}${x[1] ? tip(x[1]) : ''}</span></td><td class="n">${x[2]}</td><td class="u">${x[3]}</td><td class="u">${x[4] || ''}</td></tr>`).join('') + '</tbody>';
+  $('laytbl').innerHTML = `<thead><tr><th>#</th><th>Material</th><th class="n">K</th><th class="n">K [W/m·K]</th><th class="n">X</th><th class="n">Qa</th><th class="n">ρ</th><th class="n">T fría</th><th class="n">T caliente</th>${g.cyl ? '<th class="n">Ø int. [m]</th>' : ''}</tr></thead><tbody>` +
+    r.layers.map((l, i) => `<tr${i === r.unknown ? ' class="hl"' : ''}><td><span class="chip" style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${layerColor(i)}"></span> ${i + 1}</td><td>${esc(l.name)}</td><td class="n">${fmt(l.kin, 4)}</td><td class="n">${fmt(l.kin * 0.144228, 4)}</td><td class="n">${fmt(l.xin, 3)}</td><td class="n">${fmt(l.qa, 2)}</td><td class="n">${fmt(l.rho, 1)}</td><td class="n">${fmt(l.Tin, 1)} °C</td><td class="n">${fmt(l.Tout, 1)} °C</td>${g.cyl ? `<td class="n">${fmt(l.D_m, 4)}</td>` : ''}</tr>`).join('') + '</tbody>';
+  drawSchema(r);
+  renderExtras(r);
+}
+function rColor(r, i) { const lo = Math.min(...r.T_C), hi = Math.max(...r.T_C), l = r.layers[i]; return heat(((l.Tin + l.Tout) / 2 - lo) / ((hi - lo) || 1)); }
+function drawSchema(r, svg = $('schema')) {
+  const W = 580, H = 300, m = { l: 50, r: 70, t: 26, b: 62 };
+  const total = r.layers.reduce((s, l) => s + l.xin, 0) || 1, minW = 40, avail = W - m.l - m.r - minW * r.layers.length;
+  const widths = r.layers.map(l => minW + Math.max(0, avail) * l.xin / total);
+  const Ts = r.T_C, lo = Math.min(r.TaC, ...Ts), hi = Math.max(...Ts);
+  const yt = niceTicks(lo, hi, 5), y0 = yt[0], y1 = yt[yt.length - 1];
+  const Y = v => H - m.b - (v - y0) / (y1 - y0 || 1) * (H - m.t - m.b);
+  let s = '', x = m.l; const xs = [x];
+  yt.forEach(v => s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="#34373c"/><text x="${m.l - 8}" y="${Y(v) + 4}" text-anchor="end">${fsig(v, 4)}</text>`);
+  r.layers.forEach((l, i) => {
+    const w = widths[i];
+    s += `<rect x="${x}" y="${m.t}" width="${w}" height="${H - m.t - m.b}" fill="${rColor(r, i)}" opacity=".16"/><rect x="${x}" y="${H - m.b}" width="${w}" height="5" fill="${rColor(r, i)}"/>`;
+    const mc = Math.max(5, Math.floor(w / 6.4)), lab = l.name.length > mc ? l.name.slice(0, mc - 1) + '…' : l.name;
+    s += `<text x="${x + w / 2}" y="${H - m.b + 20}" text-anchor="middle"><title>${esc(l.name)}</title>${esc(lab)}</text><text x="${x + w / 2}" y="${H - m.b + 34}" text-anchor="middle">${fmt(l.xin, 2)} in</text>`;
+    x += w; xs.push(x);
+  });
+  s += `<line x1="10" x2="${m.l}" y1="${Y(r.TaC)}" y2="${Y(r.TaC)}" stroke="var(--cold)" stroke-dasharray="4 3"/><text x="6" y="${Y(r.TaC) + 16}" style="fill:var(--cold)">aire</text>`;
+  const curve = r.profile.flatMap((pr, i) => pr.map(([f, t]) => (xs[i] + (xs[i + 1] - xs[i]) * f).toFixed(1) + ',' + Y(t).toFixed(1)));
+  s += `<polyline fill="none" stroke="var(--yel)" stroke-width="3" stroke-linejoin="round" points="${curve.join(' ')}"/>`;
+  s += `<text x="${(xs[0] + xs[xs.length - 1]) / 2}" y="${H - 6}" text-anchor="middle" class="ttl">Espesor total ${fmt(total, 2)} in</text>`;
+  xs.forEach((xx, i) => s += `<circle cx="${xx}" cy="${Y(Ts[i])}" r="4.5" fill="${i === 0 ? 'var(--cold)' : i === xs.length - 1 ? 'var(--hot)' : 'var(--yel)'}" stroke="#212327" stroke-width="2"/>`);
+  const last = xs.length - 1;
+  s += `<text class="ttl" x="${xs[0] + 8}" y="${Y(Ts[0]) - 10}" style="fill:var(--cold)">${fmt(Ts[0], 1)} °C</text><text class="ttl" x="${xs[last] + 8}" y="${Y(Ts[last]) + 4}" style="fill:var(--hot)">${fmt(Ts[last], 1)} °C</text>`;
+  let px = xs[0] + 60; for (let i = 1; i < last; i++) { if (xs[i] - px < 36 || xs[last] - xs[i] < 50) continue; s += `<text x="${xs[i] + 6}" y="${Y(Ts[i]) + 15}">${fmt(Ts[i], 1)}</text>`; px = xs[i]; }
+  svg.innerHTML = s;
+}
+
+// ---------- Gráficas ----------
+function drawGraph() {
+  if (!CASE) return;
+  const t = $('gtype').value, n = Math.max(2, Math.min(40, +$('gn').value || 10));
+  $('gp-vel').hidden = t !== 'vel'; $('gp-esp').hidden = !t.startsWith('esp'); $('gp-tcc').hidden = $('gp-fix').hidden = t !== 'tcc';
+  const prevSel = $('glay').value;
+  $('glay').innerHTML = CASE.layers.map((l, i) => `<option value="${i}">${i + 1}. ${esc(l.name)}</option>`).join('');
+  if (prevSel !== '' && +prevSel < CASE.layers.length) $('glay').value = prevSel;
+  else { const ins = CASE.layers.reduce((b, l, i) => (l.a < CASE.layers[b].a ? i : b), 0); $('glay').value = ins; }
+  const base = JSON.parse(JSON.stringify(CASE)); if (base.mode === 3 && LAST) { base.layers[LAST.unknown].xin = LAST.layers[LAST.unknown].xin; base.mode = 2; }
+  const pts = [], rows = []; let xl, yl, ttl, note = '';
+  const out = c => { try { return TC.analyze(c); } catch (e) { return null; } };
+  if (t === 'vel') {
+    const v0 = (+$('gv0').value || 0) || 0.1, dv = (+$('gvi').value || 1) / 2, tgt = base.mode === 1 ? 'TCC' : 'TCF';
+    xl = 'Viento [MPH]'; yl = (tgt === 'TCC' ? 'Cara caliente' : 'Cara fría') + ' [°C]'; ttl = `Efecto del viento en la temperatura de ${tgt === 'TCC' ? 'cara caliente' : 'cara fría'}`;
+    for (let i = 0; i < n; i++) { const c = { ...base, V: v0 + i * dv }, r = out(c); pts.push([c.V, r ? r[tgt] : NaN]); rows.push([c.V, r && r.TCF, r && r.q]); }
+    note = 'Igual que el original: 10 puntos de medio incremento en medio incremento; si empiezas en 0 MPH, el original arranca en 0.1 MPH. Con más viento la superficie se enfría, pero se pierde más calor.';
+  } else if (t.startsWith('esp')) {
+    const li = +$('glay').value || 0, dx = +$('gxi').value || 0.5; if (base.mode === 1) base.mode = 2;
+    if (base.layers[li] && dx > base.layers[li].xin) note = `Ojo: el original solo acepta incrementos de hasta ${fmt(base.layers[li].xin, 3)} in para este material (0 < Inc ≤ espesor actual).`;
+    const x0 = base.layers[li] ? base.layers[li].xin : 0, isQ = t === 'espq';
+    xl = 'Espesor de ' + (base.layers[li] ? base.layers[li].name : '') + ' [in]';
+    yl = isQ ? 'Calor perdido [BTU/hr·ft²]' : 'Cara fría [°C]'; ttl = isQ ? 'Espesor contra pérdida de calor' : 'Espesor contra temperatura exterior';
+    for (let i = 0; i < n; i++) { const c = JSON.parse(JSON.stringify(base)), x = x0 + i * dx / 2; c.layers[li].xin = x; const r = out(c); pts.push([x, r ? (isQ ? r.q : r.TCF) : NaN]); rows.push([x, r && r.TCF, r && r.q]); }
+    note = (note ? note + ' ' : '') + 'Igual que el original: se deja fija la temperatura interior y el espesor crece desde el valor actual, de medio incremento en medio incremento. Cuando la curva se aplana, más aislante ya ahorra poco.';
+  } else {
+    const inc = +$('gti').value || 20, b2 = { ...base, mode: 2 };
+    const dT = $('gfix').checked ? inc : ((inc / 2) * 1.8 + 32) / 1.8;
+    xl = 'Cara caliente [°C]'; yl = 'Cara fría [°C]'; ttl = 'Temperatura interior contra exterior';
+    const t0 = b2.TCCC;
+    for (let i = 0; i < n; i++) { const c = { ...b2, TCCC: t0 + i * dT }, r = out(c); pts.push([c.TCCC, r ? r.TCF : NaN]); rows.push([c.TCCC, r && r.TCF, r && r.q]); }
+    note = `${$('gfix').checked ? 'Puntos cada ' + fmt(dT, 2) + ' °C.' : 'Como el original: puntos cada ' + fmt(dT, 2) + ' °C.'}${inc > 100 || inc <= 0 ? ' El original solo acepta incrementos entre 0 y 100.' : ''} Útil para saber hasta qué temperatura de proceso aguanta el aislamiento actual.`;
+  }
+  $('gtitle').textContent = ttl; $('gnote').textContent = note;
+  chart($('gchart'), [{ pts, color: 'var(--yel)', dots: true, area: true }], { xl, yl });
+  $('gtbl').innerHTML = `<thead><tr><th class="n">${esc(xl)}</th><th class="n">Cara fría [°C]</th><th class="n">Calor perdido [BTU/hr·ft²]</th></tr></thead><tbody>` + rows.map(r => `<tr><td class="n">${fmt(r[0], 2)}</td><td class="n">${fmt(r[1], 1)}</td><td class="n">${fmt(r[2], 2)}</td></tr>`).join('') + '</tbody>';
+}
+['gtype', 'gv0', 'gvi', 'glay', 'gxi', 'gti', 'gn', 'gfix'].forEach(id => $(id).addEventListener('input', drawGraph));
+
+// ---------- Materiales ----------
+let MSEL = 0; const CMP = []; const PALETTE = ['var(--yel)', 'var(--cold)', 'var(--hot)', 'var(--ok)', '#c9a7ff', '#ff9ec7'];
+function renderMats() {
+  const q = $('msearch').value.trim().toUpperCase();
+  const list = MATS.map((m, i) => [m, i]).filter(([m]) => !q || m.name.toUpperCase().includes(q));
+  $('mbody').innerHTML = list.map(([m, i]) => `<tr data-i="${i}" class="${i === MSEL ? 'sel' : ''}"><td>${esc(m.name)}</td><td class="n">${fsig(m.rho, 4)}</td><td class="n">${fsig(m.a + m.b * 500 + m.c * 250000, 4)}</td></tr>`).join('');
+  $('mcount').textContent = `${list.length} de ${MATS.length} materiales`;
+}
+function selMat(i) { MSEL = i; const m = MATS[i]; if (!m) return; $('mname').value = m.name; $('mrho').value = m.rho; $('ma').value = m.a; $('mb').value = m.b; $('mc').value = m.c; $('mmsg').textContent = ''; renderMats(); drawK(); }
+$('mbody').onclick = e => { const tr = e.target.closest('tr'); if (tr) selMat(+tr.dataset.i); };
+$('msearch').oninput = renderMats;
+$('msave').onclick = () => {
+  const m = { name: $('mname').value.trim().toUpperCase(), rho: +$('mrho').value || 0, a: +$('ma').value || 0, b: +$('mb').value || 0, c: +$('mc').value || 0 };
+  if (!m.name) { $('mmsg').textContent = 'Escribe un nombre.'; return; }
+  if (MATS.some((x, i) => x.name.toUpperCase() === m.name && i !== MSEL)) { $('mmsg').textContent = 'Ya existe un material con ese nombre.'; return; }
+  if (MSEL === -1) { MATS.push(m); MATS.sort((a, b) => a.name.localeCompare(b.name)); MSEL = MATS.indexOf(m); } else MATS[MSEL] = m;
+  saveMats(); refreshDatalist(); renderMats(); drawK(); $('mmsg').textContent = 'Guardado';
+};
+$('mnew').onclick = () => { MSEL = -1; ['mname', 'mrho', 'ma', 'mb', 'mc'].forEach(id => $(id).value = ''); $('mname').focus(); $('mmsg').textContent = 'Llena los datos y guarda.'; renderMats(); };
+function confirmBtn(btn, label, ask, fn) { if (btn.dataset.armed !== '1') { btn.dataset.armed = '1'; btn.textContent = ask; setTimeout(() => { btn.dataset.armed = ''; btn.textContent = label; }, 3000); return; } btn.dataset.armed = ''; btn.textContent = label; fn(); }
+$('mdel').onclick = () => { if (MSEL < 0) return; confirmBtn($('mdel'), 'Borrar', '¿Borrar ' + MATS[MSEL].name + '?', () => { MATS.splice(MSEL, 1); saveMats(); refreshDatalist(); selMat(Math.min(MSEL, MATS.length - 1)); }); };
+$('mreset').onclick = () => confirmBtn($('mreset'), 'Restaurar original', '¿Seguro? Se pierden tus cambios', () => { MATS = DATA.mats.map(m => ({ name: m[0], a: m[1], b: m[2], c: m[3], rho: m[4] })); saveMats(); refreshDatalist(); selMat(0); toast('Catálogo restaurado'); });
+$('mcsv').onclick = () => saveFile('materiales_transcal.csv', 'Material,a,b,c,densidad_lb_ft3\r\n' + MATS.map(m => `"${m.name}",${m.a},${m.b},${m.c},${m.rho}`).join('\r\n') + '\r\n');
+$('mcmp').onclick = () => { const m = MATS[MSEL]; if (m && !CMP.includes(m.name) && CMP.length < 5) { CMP.push(m.name); drawK(); } };
+$('klegend').onclick = e => { const n = e.target.closest('[data-n]'); if (n) { CMP.splice(CMP.indexOf(n.dataset.n), 1); drawK(); } };
+['kt0', 'kt1', 'mname', 'ma', 'mb', 'mc'].forEach(id => $(id).addEventListener('input', drawK));
+function drawK() {
+  const t0 = +$('kt0').value, t1 = +$('kt1').value; if (!(t1 > t0)) return;
+  const cur = { name: $('mname').value || '(sin nombre)', a: +$('ma').value || 0, b: +$('mb').value || 0, c: +$('mc').value || 0 };
+  const items = [cur, ...CMP.filter(n => n !== cur.name).map(findMat).filter(Boolean)];
+  const series = items.map((m, i) => ({ name: m.name, color: PALETTE[i % PALETTE.length], pts: Array.from({ length: 41 }, (_, k) => { const tc = t0 + (t1 - t0) * k / 40, tf = tc * 1.8 + 32; return [tc, m.a + m.b * tf + m.c * tf * tf]; }) }));
+  $('klegend').innerHTML = series.map((s, i) => `<span ${i ? `data-n="${esc(s.name)}" style="cursor:pointer" title="Quitar de la comparación"` : ''}><i style="background:${s.color}"></i>${esc(s.name)}${i ? ' ✕' : ''}</span>`).join('');
+  chart($('kchart'), series, { xl: 'Temperatura [°C]', yl: 'K [Btu·in/hr·ft²·°F]' });
+}
+
+// ---------- Flama ----------
+TC.FUELS.forEach((f, i) => $('fuel').insertAdjacentHTML('beforeend', `<option value="${i}">${f[0]}</option>`));
+$('fuel').insertAdjacentHTML('beforeend', '<option value="custom">Otro (capturar calor y masa)</option>');
+$('fuel').value = 4;
+function fuelSync() { const v = $('fuel').value, custom = v === 'custom'; $('fheat').disabled = $('fmass').disabled = !custom; if (!custom) { $('fheat').value = TC.FUELS[v][1]; $('fmass').value = TC.FUELS[v][2]; } calcFlame(); }
+function calcFlame() {
+  const p = { co2: +$('fco2').value || 0, o2: +$('fo2').value || 0, h2o: +$('fh2o').value || 0, n2: +$('fn2').value || 0, TmixC: +$('ftmix').value || 0, loss: +$('floss').value || 0, heat: +$('fheat').value || 0, mass: +$('fmass').value || 0, fixLoss: $('ffix').checked };
+  const sum = p.co2 + p.o2 + p.h2o + p.n2;
+  $('fsum').innerHTML = `La composición suma <b class="${Math.abs(sum - 100) > 0.01 ? 'bad' : ''}">${fmt(sum, 1)} %</b>${Math.abs(sum - 100) > 0.01 ? ' (debería sumar 100 %)' : ''}`;
+  try {
+    if ([p.co2, p.o2, p.h2o, p.n2].some(v => v < 0 || v > 100)) throw new Error('Escribe un número entre 0 y 100 en cada gas.');
+    if (!(p.mass > 0)) throw new Error('La masa de gas debe ser mayor que cero.');
+    const r = TC.flame(p);
+    $('fres').textContent = fmt(r.TC, 2) + ' °C';
+    $('fsub').textContent = `${fmt(r.TF, 0)} °F · ${r.iter} iteraciones · calor neto ${fmt(r.Q, 0)} Btu/lb`;
+    $('fmark').style.left = `calc(${Math.max(0, Math.min(100, r.TC / 30))}% - 2px)`;
+  } catch (e) { $('fres').textContent = '—'; $('fsub').textContent = e.message; }
+}
+$('fuel').onchange = fuelSync;
+['fheat', 'fmass', 'ftmix', 'floss', 'fco2', 'fo2', 'fh2o', 'fn2', 'ffix'].forEach(id => $(id).addEventListener('input', calcFlame));
+
+// ---------- Ajuste ----------
+const FOPTS = [['none', 'Ninguna'], ['pow', 'X^n'], ['sin', 'Sen(x)'], ['cos', 'Cos(x)'], ['tan', 'Tan(x)'], ['ln', 'Ln(x)'], ['exp', 'Exp(x)'], ['expn', 'Exp(-x)']];
+let FSEL = [{ type: 'pow', n: 0 }, { type: 'pow', n: 1 }, { type: 'pow', n: 2 }, { type: 'none', n: 0 }, { type: 'none', n: 0 }], FPROC = 'multi';
+function renderFuncs() {
+  $('funcs').innerHTML = FPROC === 'lin' ? '<p class="hint">Línea recta: a0 es la ordenada al origen y a1 la pendiente.</p>' : FSEL.map((f, i) => `<div class="row" style="align-items:center;flex-wrap:nowrap"><span class="mono" style="width:26px;color:var(--yel)">F${i}</span>
+    <div class="f"><select data-i="${i}" data-k="type" aria-label="Función F${i}">${FOPTS.map(o => `<option value="${o[0]}"${o[0] === f.type ? ' selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+    <div class="f" style="flex:0 1 90px" ${f.type === 'pow' ? '' : 'hidden'}><input type="number" min="-10" max="10" step="1" value="${f.n}" data-i="${i}" data-k="n" aria-label="Exponente n de F${i}"></div></div>`).join('');
+}
+$('funcs').addEventListener('input', e => { const i = e.target.dataset.i; if (i == null) return; const k = e.target.dataset.k; FSEL[i][k] = k === 'n' ? Math.max(-10, Math.min(10, Math.round(+e.target.value || 0))) : e.target.value; if (k === 'type') renderFuncs(); doFit(); });
+document.querySelectorAll('#fproc [data-v]').forEach(b => b.onclick = () => { FPROC = b.dataset.v; setSeg('fproc', FPROC); renderFuncs(); doFit(); });
+Object.keys(DATA.datasets).forEach(k => $('fds').insertAdjacentHTML('beforeend', `<option>${k}</option>`));
+$('fds').onchange = () => { const d = DATA.datasets[$('fds').value]; if (d) { $('fdata').value = d.map(p => p[0] + '\t' + p[1]).join('\n'); doFit(); } };
+$('fdfile').onchange = async e => { const f = e.target.files[0]; if (!f) return; $('fdata').value = new TextDecoder('windows-1252').decode(await f.arrayBuffer()); doFit(); };
+$('fdata').addEventListener('input', doFit); $('fround').addEventListener('input', doFit);
+function doFit() {
+  const pts = $('fdata').value.replace(/\x1a/g, '').split(/\r?\n/).map(l => l.trim().replace(/,/g, ' ').split(/\s+/).map(Number)).filter(p => p.length >= 2 && isFinite(p[0]) && isFinite(p[1])).map(p => $('fround').checked ? [Math.round(p[0] * 100) / 100, Math.round(p[1] * 100) / 100] : p.slice(0, 2));
+  const funcs = FPROC === 'lin' ? [{ type: 'pow', n: 0 }, { type: 'pow', n: 1 }] : FSEL.filter(f => f.type !== 'none');
+  const err = m => { $('fiterr').hidden = false; $('fiterr').textContent = m; $('fitcoef').innerHTML = ''; $('fitmat').innerHTML = ''; chart($('fitchart'), [{ pts, color: 'var(--yel)', dots: true, line: false }], { xl: 'X', yl: 'Y' }); };
+  if (pts.length < 2) return err('Captura al menos dos parejas X Y.');
+  if (!funcs.length) return err('Elige al menos una función.');
+  if (pts.length < funcs.length) return err('Hay menos datos que funciones elegidas.');
+  let r; try { r = TC.fit(pts, funcs); } catch (e) { return err(e.message); }
+  $('fiterr').hidden = true;
+  $('fitttl').textContent = 'Y = ' + funcs.map((f, i) => `a${i}·${TC.fnLabel(f)}`).join(' + ');
+  $('fitcoef').innerHTML = funcs.map((f, i) => `<tr><td>a${i} · ${TC.fnLabel(f)}${FPROC === 'lin' ? (i ? ' (pendiente)' : ' (ordenada al origen)') : ''}</td><td class="n">${r.coef[i].toPrecision(10)}</td></tr>`).join('') + `<tr><td><span class="lbl">R²${tip('Qué tan bien describe la ecuación a los datos: 1 es perfecto.')}</span></td><td class="n">${r.r2.toFixed(6)}</td></tr>`;
+  const xs = pts.map(p => p[0]), lo = Math.min(...xs), hi = Math.max(...xs), curve = [];
+  for (let k = 0; k <= 120; k++) { const x = lo + (hi - lo) * k / 120; try { curve.push([x, r.pred(x)]); } catch (e) { } }
+  chart($('fitchart'), [{ pts: curve, color: 'var(--cold)' }, { pts, color: 'var(--yel)', dots: true, line: false }], { xl: 'X', yl: 'Y' });
+  const ev = (f, x) => ({ pow: x ** f.n, sin: Math.sin(x * Math.PI / 180), cos: Math.cos(x * Math.PI / 180), tan: Math.tan(x * Math.PI / 180), ln: Math.log(x), exp: Math.exp(x), expn: Math.exp(-x) })[f.type];
+  $('fitmat').innerHTML = '<thead><tr><th>#</th>' + funcs.map((f, i) => `<th class="n">F${i} = ${TC.fnLabel(f)}</th>`).join('') + '<th class="n">Y</th><th class="n">Y ajustada</th><th class="n">Error</th></tr></thead><tbody>' + pts.map((p, k) => { const y = r.pred(p[0]); return `<tr><td>${k + 1}</td>` + funcs.map(f => `<td class="n">${fsig(ev(f, p[0]), 6)}</td>`).join('') + `<td class="n">${fsig(p[1], 6)}</td><td class="n">${fsig(y, 6)}</td><td class="n">${fsig(p[1] - y, 4)}</td></tr>`; }).join('') + '</tbody>';
+}
+
+// ---------- Conversiones ----------
+const CONV = DATA.conv.concat([['Centigrados(grados)', 'C2F', 'Farenheit(grados)'], ['Centigrados(grados)', 'C2K', 'Kelvin(grados)'], ['Farenheit(grados)', 'F2C', 'Centigrados(grados)']]);
+function renderConv() {
+  const q = $('csearch').value.trim().toLowerCase(), v = +$('cval').value;
+  const list = CONV.filter(c => !q || c[0].toLowerCase().includes(q) || c[2].toLowerCase().includes(q));
+  $('cbody').innerHTML = list.slice(0, 300).map(c => {
+    let res, f;
+    if (c[1] === 'C2F') { res = v * 9 / 5 + 32; f = '°C×9/5+32'; } else if (c[1] === 'C2K') { res = v + 273.15; f = '°C+273.15'; } else if (c[1] === 'F2C') { res = (v - 32) * 5 / 9; f = '(°F−32)×5/9'; } else { res = v * c[1]; f = fsig(c[1], 5); }
+    return `<tr><td>${esc(c[0])}</td><td class="n mono">${f}</td><td>${esc(c[2])}</td><td class="n mono" style="color:var(--yel)">${fsig(res, 6)}</td></tr>`;
+  }).join('');
+  $('ccount').textContent = list.length > 300 ? `Mostrando 300 de ${list.length}; escribe para filtrar.` : `${list.length} equivalencias`;
+}
+$('csearch').oninput = renderConv; $('cval').oninput = renderConv;
+
+
+// ---------- Seguridad, costo, casos guardados y reporte ----------
+const COST = store.get('cost', { area: 10, len: 10, hrs: 8760 });
+$('areaM2').value = COST.area; $('lenM').value = COST.len; $('hrs').value = COST.hrs;
+function safetyInfo(t) {
+  if (t > 60) return ['bad', 'Riesgo de quemadura', `La superficie exterior queda a ${fmt(t, 1)} °C. Arriba de 60 °C el contacto de unos segundos puede quemar (criterio usado en ASTM C1055). Conviene más aislante, una lámina protectora o señalización.`];
+  if (t > 45) return ['warn', 'Caliente al tacto', `La superficie exterior queda a ${fmt(t, 1)} °C. No llega al límite común de 60 °C, pero tocarla resulta muy incómodo.`];
+  return ['ok', 'Segura al tacto', `La superficie exterior queda a ${fmt(t, 1)} °C, por debajo de 45 °C.`];
+}
+function costCalc(r) {
+  const g = TC.GEOM[CASE.geom];
+  const A = g.cyl ? Math.PI * r.Dout_m * (+$('lenM').value || 0) : (+$('areaM2').value || 0);
+  const hrs = +$('hrs').value || 0;
+  const kW = r.q * 3.15459 * A / 1000, MWh = kW * hrs / 1000, gas = r.gas * A * 10.7639 * hrs;
+  return { A, hrs, kW, MWh, gas };
+}
+function renderExtras(r) {
+  if (!r) return;
+  const g = TC.GEOM[CASE.geom];
+  $('fArea').hidden = g.cyl; $('fLen').hidden = !g.cyl;
+  const [cls, ttl, txt] = safetyInfo(r.TCF);
+  $('safety').className = 'safe ' + cls;
+  $('safety').innerHTML = `<span class="dot"></span><div><b>${ttl}</b><p>${txt}</p></div>`;
+  const c = costCalc(r);
+  const T = (k, v, u) => `<div class="tile sm"><div class="k">${k}</div><div class="v">${v}</div><div class="u">${u}</div></div>`;
+  $('costTiles').innerHTML = [
+    T('Pérdida total', fmt(c.kW, 2), 'kW (en toda el área)'),
+    T('Energía perdida al año', fmt(c.MWh, 1), 'MWh por año'),
+    T('Gas natural al año', fmt(c.gas, 0), 'm³ estándar por año'),
+    T('Por radiación', fmt(r.pctRad, 1) + ' %', 'del calor perdido'),
+  ].join('');
+  $('costNote').textContent = `Área considerada: ${fmt(c.A, 2)} m²${g.cyl ? ` (π × ${fmt(r.Dout_m, 3)} m × largo)` : ''}. El gas es "ideal", como en el original: supone que todo su calor se aprovecha. Con un quemador real (≈80 % de eficiencia) el consumo sería cerca de 25 % mayor.`;
+}
+['areaM2', 'lenM', 'hrs'].forEach(id => $(id).addEventListener('input', () => {
+  store.set('cost', { area: $('areaM2').value, len: $('lenM').value, hrs: $('hrs').value }); renderExtras(LAST);
+}));
+
+function myCases() { return store.get('cases', {}); }
+function refreshMyCases(sel) {
+  const cs = myCases(), names = Object.keys(cs).sort((a, b) => a.localeCompare(b));
+  $('mycases').innerHTML = `<option value="">${names.length ? 'Elegir…' : 'Todavía no hay casos guardados'}</option>` + names.map(n => `<option${n === sel ? ' selected' : ''}>${esc(n)}</option>`).join('');
+}
+$('mycases').onchange = () => { const c = myCases()[$('mycases').value]; if (c) { loadCase(c); $('ex').value = ''; toast('Caso abierto'); } };
+$('saveLocal').onclick = () => {
+  const name = (CASE.title || '').trim() || 'Sin nombre'; const cs = myCases(); const existed = name in cs;
+  cs[name] = JSON.parse(JSON.stringify(CASE)); store.set('cases', cs); refreshMyCases(name);
+  toast(existed ? 'Caso actualizado: ' + name : 'Caso guardado: ' + name);
+};
+$('delLocal').onclick = () => {
+  const n = $('mycases').value; if (!n) return toast('Elige primero un caso de la lista');
+  confirmBtn($('delLocal'), 'Borrar', '¿Borrar ' + n + '?', () => { const cs = myCases(); delete cs[n]; store.set('cases', cs); refreshMyCases(); toast('Caso borrado'); });
+};
+refreshMyCases();
+
+function buildReport() {
+  const r = LAST; if (!r) return null;
+  const g = TC.GEOM[CASE.geom], c = costCalc(r), [scls, sttl, stxt] = safetyInfo(r.TCF);
+  const modeTxt = ['', 'Temperatura interior (TCF → TCC)', 'Temperatura exterior (TCC → TCF)', 'Espesor de aislante'][CASE.mode];
+  const svg = $('schema').outerHTML;
+  const row = (a, b) => `<tr><td>${a}</td><td class="n">${b}</td></tr>`;
+  const today = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+  const sc = { ok: '#1f7a4a', warn: '#a86b00', bad: '#b42318' }[scls];
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Reporte Transcal - ${esc(CASE.title)}</title>
+<style>
+:root{--yel:#c99a00;--cold:#1d6fb8;--hot:#d9480f;--muted:#5d5d58;--ink:#16171a}
+body{font:13px/1.45 "Segoe UI",Arial,sans-serif;color:#16171a;margin:28px auto;max-width:820px;padding:0 20px}
+h1{font-size:24px;margin:0} h2{font-size:15px;margin:22px 0 8px;padding-bottom:4px;border-bottom:2px solid #ffc629;text-transform:uppercase;letter-spacing:.05em}
+.head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:4px solid #16171a;padding-bottom:10px}
+.head small{color:#5d5d58}
+table{border-collapse:collapse;width:100%} td,th{padding:5px 8px;border-bottom:1px solid #ddd;text-align:left} th{font-size:11px;color:#5d5d58}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.kpi{border:1px solid #ddd;border-left:4px solid #ffc629;padding:8px 10px} .kpi b{display:block;font-size:22px} .kpi span{font-size:11px;color:#5d5d58}
+.safe{border-left:4px solid ${sc};background:#f6f6f4;padding:8px 12px} .safe b{color:${sc}}
+svg{width:100%;height:auto;background:#fff} svg text{fill:#5d5d58;font:11px Arial} svg .ttl{fill:#16171a;font-weight:600}
+.foot{margin-top:24px;color:#5d5d58;font-size:11px;border-top:1px solid #ddd;padding-top:8px}
+@media print{body{margin:0}}
+</style></head><body>
+<div class="head"><div><small>Transcal · Reporte de transferencia de calor</small><h1>${esc(CASE.title || 'Caso')}</h1></div><small>${today}</small></div>
+<h2>Resumen</h2>
+<div class="kpis"><div class="kpi"><span>Cara fría</span><b>${fmt(r.TCF, 1)} °C</b></div><div class="kpi"><span>Cara caliente</span><b>${fmt(r.TCC, 1)} °C</b></div><div class="kpi"><span>Calor perdido</span><b>${fmt(r.q, 2)}</b><span>BTU/hr·ft² · ${fmt(r.q * 3.15459, 1)} W/m²</span></div><div class="kpi"><span>${r.unknown >= 0 ? 'Espesor calculado' : 'Por radiación'}</span><b>${r.unknown >= 0 ? fmt(r.layers[r.unknown].xin, 3) + ' in' : fmt(r.pctRad, 1) + ' %'}</b></div></div>
+<p class="safe"><b>${sttl}.</b> ${stxt}</p>
+<h2>Datos del caso</h2><table>
+${row('Tipo de cálculo', modeTxt)}${row('Geometría', g.name)}${row(g.cyl ? 'Diámetro exterior' : g.Llabel.replace(' [m]', ''), g.cyl ? fmt(r.Dout_m, 4) + ' m' : fmt(CASE.Lm, 2) + ' m')}
+${row('Temperatura ambiente', fmt(CASE.TaC, 1) + ' °C')}${row('Velocidad del aire', fmt(CASE.V, 1) + ' MPH')}${row('Emisividad de la cara fría', fmt(CASE.eps, 3))}</table>
+<h2>Capas (de la cara fría a la caliente)</h2><table><thead><tr><th>#</th><th>Material</th><th class="n">Espesor [in]</th><th class="n">K [Btu·in/hr·ft²·°F]</th><th class="n">ρ [lb/ft³]</th><th class="n">T fría [°C]</th><th class="n">T caliente [°C]</th><th class="n">Qa [Btu/ft²]</th></tr></thead><tbody>
+${r.layers.map((l, i) => `<tr><td>${i + 1}</td><td>${esc(l.name)}${i === r.unknown ? ' (calculado)' : ''}</td><td class="n">${fmt(l.xin, 3)}</td><td class="n">${fmt(l.kin, 4)}</td><td class="n">${fmt(l.rho, 1)}</td><td class="n">${fmt(l.Tin, 1)}</td><td class="n">${fmt(l.Tout, 1)}</td><td class="n">${fmt(l.qa, 2)}</td></tr>`).join('')}</tbody></table>
+<h2>Perfil de temperatura</h2>${svg}
+<h2>Resultados</h2><table>
+${row('Producto Grashof-Prandtl', fsig(r.grpr, 5))}${row('Régimen en la cara fría', r.turbulent ? 'Turbulento' : 'Laminar')}${row('Número de Nusselt', fmt(r.nu, 2))}
+${row('Coef. global de transferencia', fmt(r.U, 4) + ' BTU/hr·ft²·°F · ' + fmt(r.U * 5.67826, 3) + ' W/m²·K')}
+${row('Flujo de calor total', fmt(r.q, 2) + ' BTU/hr·ft² · ' + fmt(r.q * 3.15459, 1) + ' W/m²')}
+${row('Pérdidas por convección', fmt(r.qc, 2) + ' BTU/hr·ft²')}${row('Pérdidas por radiación', fmt(r.qr, 2) + ' BTU/hr·ft² (' + fmt(r.pctRad, 2) + ' %)')}
+${row('Gas natural equivalente', fmt(r.gas, 4) + ' m³ std/hr·ft²')}${row('Calor total acumulado', fmt(r.qaTot, 2) + ' Btu/ft²')}${row('Gas equivalente (acumulado)', fmt(r.gasStored, 4) + ' m³ std/ft²')}</table>
+<h2>Consumo estimado</h2><table>
+${row('Área considerada', fmt(c.A, 2) + ' m²')}${row('Horas de operación al año', fmt(c.hrs, 0))}${row('Pérdida total', fmt(c.kW, 2) + ' kW')}${row('Energía perdida al año', fmt(c.MWh, 1) + ' MWh')}${row('Gas natural al año (ideal)', fmt(c.gas, 0) + ' m³')}</table>
+<p class="foot">Calculado con Transcal (versión web), con las mismas fórmulas de Transcal V3.0. Para guardar como PDF: Archivo → Imprimir → Guardar como PDF.</p>
+</body></html>`;
+}
+$('report').onclick = () => {
+  const html = buildReport(); if (!html) return toast('Corrige los datos del caso antes de generar el reporte');
+  saveFile('Reporte Transcal - ' + casName() + '.html', html);
+};
+
+
+// ---------- Comparar opciones ----------
+let OPTS = store.get('opts', null);
+const saveOpts = () => store.set('opts', OPTS);
+const LETTERS = 'ABCD';
+function startCompare() {
+  const a = JSON.parse(JSON.stringify(CASE)), b = JSON.parse(JSON.stringify(CASE));
+  a.optName = 'Opción A (actual)'; b.optName = 'Opción B';
+  OPTS = [a, b]; saveOpts();
+}
+$('toCompare').onclick = () => { startCompare(); toast('Se crearon las opciones A y B con tu caso actual'); location.hash = 'comparar'; };
+$('cmpStart').onclick = $('cmpReset').onclick = () => { startCompare(); renderCompare(); toast('Opciones creadas con el caso actual'); };
+$('cmpAdd').onclick = () => { if (!OPTS) startCompare(); if (OPTS.length >= 4) return toast('El máximo es de 4 opciones'); const c = JSON.parse(JSON.stringify(OPTS[OPTS.length - 1])); c.optName = 'Opción ' + LETTERS[OPTS.length]; OPTS.push(c); saveOpts(); renderCompare(); };
+function knownField(o) { return o.mode === 1 ? ['TCFC', 'Cara fría [°C]'] : ['TCCC', 'Cara caliente [°C]']; }
+function cmpResults() { return OPTS.map(o => { try { return TC.analyze(o); } catch (e) { return { err: e.message }; } }); }
+function renderCompare() {
+  const has = OPTS && OPTS.length;
+  $('cmpEmpty').hidden = !!has; $('cmpBody').hidden = !has;
+  if (!has) return;
+  const base = OPTS[0], g = TC.GEOM[base.geom];
+  const res = cmpResults();
+  $('cmpInfo').textContent = `${g.name} · ${['', 'Temperatura interior', 'Temperatura exterior', 'Espesor de aislante'][base.mode]} · ${OPTS.length} opciones`;
+  // columnas
+  const [kf, kl] = knownField(base);
+  $('cmpCols').style.gridTemplateColumns = `repeat(${OPTS.length}, minmax(270px, 1fr))`;
+  $('cmpCols').innerHTML = OPTS.map((o, k) => {
+    const r = res[k];
+    return `<div class="card cmpcol" data-o="${k}">
+      <div class="hd"><input type="text" value="${esc(o.optName || 'Opción ' + LETTERS[k])}" data-k="optName" aria-label="Nombre de la opción ${LETTERS[k]}">${OPTS.length > 2 ? `<button type="button" class="icon del" data-rm="1" aria-label="Quitar opción">${ICON.x}</button>` : ''}</div>
+      <div class="lbl">Capas (fría → caliente) · espesor [in]</div>
+      ${o.layers.map((l, i) => `<div class="mini"><input type="text" list="matlist" value="${esc(l.name)}" data-li="${i}" data-lk="name" aria-label="Material capa ${i + 1}"><input type="number" step="any" min="0" value="${l.xin}" data-li="${i}" data-lk="xin" aria-label="Espesor capa ${i + 1}"><button type="button" class="icon del" data-lrm="${i}" aria-label="Quitar capa ${i + 1}">${ICON.x}</button></div>`).join('')}
+      <div class="toolbar"><button type="button" data-ladd="1">+ Capa</button></div>
+      <div class="row">
+        <div class="f"><label>Emisividad</label><input type="number" step="any" min="0" max="1" value="${o.eps}" data-k="eps"></div>
+        <div class="f"><label>Viento [MPH]</label><input type="number" step="any" min="0" value="${o.V}" data-k="V"></div>
+      </div>
+      <div class="row">
+        <div class="f"><label>Temp. ambiente [°C]</label><input type="number" step="any" value="${o.TaC}" data-k="TaC"></div>
+        <div class="f"><label>${kl}</label><input type="number" step="any" value="${o[kf]}" data-k="${kf}"></div>
+        ${o.mode === 3 ? `<div class="f"><label>Cara fría deseada [°C]</label><input type="number" step="any" value="${o.TCFC}" data-k="TCFC"></div>` : ''}
+      </div>
+      ${r.err ? `<div class="err">${esc(r.err)}</div>` : `<svg class="chart" viewBox="0 0 580 300" data-svg="${k}" role="img" aria-label="Perfil de temperatura de la opción ${LETTERS[k]}"></svg>`}
+    </div>`;
+  }).join('');
+  res.forEach((r, k) => { if (!r.err) drawSchema(r, document.querySelector(`[data-svg="${k}"]`)); });
+  // tabla resumen
+  const ok = res.map(r => !r.err);
+  const cost = res.map(r => r.err ? null : costCalc(r));
+  const metrics = [
+    ['Cara fría', r => r.TCF, v => fmt(v, 1) + ' °C', 'low'],
+    ['Cara caliente', r => r.TCC, v => fmt(v, 1) + ' °C', null],
+    ...(base.mode === 3 ? [['Espesor calculado', r => r.layers[r.unknown].xin, v => fmt(v, 3) + ' in', 'low']] : []),
+    ['Calor perdido', r => r.q, v => fmt(v, 2) + ' BTU/hr·ft²', 'low'],
+    ['% por radiación', r => r.pctRad, v => fmt(v, 1) + ' %', null],
+    ['Espesor total', r => r.layers.reduce((s, l) => s + l.xin, 0), v => fmt(v, 2) + ' in', null],
+    ['Gas natural al año', (r, k) => cost[k].gas, v => fmt(v, 0) + ' m³', 'low'],
+    ['Calor acumulado', r => r.qaTot, v => fmt(v, 0) + ' Btu/ft²', null],
+  ];
+  const safeRow = '<tr><td>Seguridad al tacto</td>' + res.map(r => r.err ? '<td class="n">—</td>' : (() => { const [c, t] = safetyInfo(r.TCF); return `<td class="n"><span class="pill ${c}">${t}</span></td>`; })()).join('') + '</tr>';
+  let best = -1;
+  const rows = metrics.map(([lab, get, f, dir]) => {
+    const vals = res.map((r, k) => r.err ? null : get(r, k));
+    const valid = vals.filter(v => v != null && isFinite(v));
+    const w = dir === 'low' && valid.length > 1 && Math.min(...valid) !== Math.max(...valid) ? Math.min(...valid) : null;
+    if (lab === 'Calor perdido' && w != null) best = vals.indexOf(w);
+    const main = `<tr><td>${lab}</td>` + vals.map(v => `<td class="n${v != null && v === w ? ' win' : ''}">${v == null ? '—' : f(v)}</td>`).join('') + '</tr>';
+    if (!dir || vals[0] == null) return main;
+    const diff = `<tr><td class="d">vs. ${esc(OPTS[0].optName || 'A')}</td>` + vals.map((v, k) => {
+      if (k === 0 || v == null) return '<td class="d n"></td>';
+      const dv = v - vals[0], pct = vals[0] ? dv / vals[0] * 100 : 0;
+      const cls = Math.abs(dv) < 1e-9 ? '' : (dv < 0 ? 'good' : 'worse');
+      const txt = dv === 0 ? 'igual' : (dv > 0 ? '+' : '−') + fmt(Math.abs(pct), 1) + ' %';
+      return `<td class="d n ${cls}">${txt}</td>`;
+    }).join('') + '</tr>';
+    return main + diff;
+  }).join('');
+  $('cmpTable').innerHTML = '<thead><tr><th></th>' + OPTS.map((o, k) => `<th class="ohd n">${esc(o.optName || 'Opción ' + LETTERS[k])}</th>`).join('') + '</tr></thead><tbody>' + rows + safeRow + '</tbody>';
+  document.querySelectorAll('.cmpcol').forEach((el, k) => el.classList.toggle('best', k === best));
+  // veredicto
+  if (best >= 0 && ok.every(Boolean)) {
+    const b = res[best], a = res[0], cb = cost[best], ca = cost[0];
+    let v = `La que menos calor pierde es ${OPTS[best].optName}: ${fmt(b.q, 2)} BTU/hr·ft²`;
+    if (best !== 0) v += `, ${fmt((1 - b.q / a.q) * 100, 1)} % menos que ${OPTS[0].optName}, unos ${fmt(ca.gas - cb.gas, 0)} m³ de gas menos al año`;
+    v += '. ';
+    const unsafe = res.map((r, k) => r.TCF > 60 ? OPTS[k].optName : null).filter(Boolean);
+    if (unsafe.length) v += `Ojo: ${unsafe.join(', ')} ${unsafe.length > 1 ? 'quedan' : 'queda'} arriba de 60 °C en la cara fría.`;
+    $('cmpVerdict').textContent = v;
+  } else $('cmpVerdict').textContent = ok.every(Boolean) ? 'Las opciones pierden lo mismo de calor.' : 'Corrige los datos marcados en rojo para comparar todas las opciones.';
+  $('cmpCols').querySelectorAll('[data-svg]').length;
+}
+$('cmpCols').addEventListener('change', e => {
+  const col = e.target.closest('[data-o]'); if (!col) return; const o = OPTS[+col.dataset.o], t = e.target;
+  if (t.dataset.k) o[t.dataset.k] = t.dataset.k === 'optName' ? t.value : +t.value;
+  else if (t.dataset.lk) {
+    const L = o.layers[+t.dataset.li];
+    if (t.dataset.lk === 'name') { const m = findMat(t.value); if (m) Object.assign(L, { name: m.name, a: m.a, b: m.b, c: m.c, rho: m.rho }); else { L.name = t.value; toast('Ese material no está en el catálogo'); } }
+    else L.xin = +t.value || 0;
+  }
+  saveOpts(); renderCompare();
+});
+$('cmpCols').addEventListener('click', e => {
+  const btn = e.target.closest('button'); if (!btn) return; const col = btn.closest('[data-o]'); const k = +col.dataset.o, o = OPTS[k];
+  if (btn.dataset.rm) OPTS.splice(k, 1);
+  else if (btn.dataset.lrm != null) { if (o.layers.length <= 1) return toast('Cada opción necesita al menos una capa'); o.layers.splice(+btn.dataset.lrm, 1); }
+  else if (btn.dataset.ladd) { if (o.layers.length >= 10) return toast('El máximo es de 10 capas'); const m = findMat('LANA MINERAL') || MATS[0]; o.layers.push({ name: m.name, a: m.a, b: m.b, c: m.c, rho: m.rho, xin: 1 }); }
+  else return;
+  saveOpts(); renderCompare();
+});
+$('cmpReport').onclick = () => {
+  if (!OPTS || !OPTS.length) return toast('Primero crea las opciones');
+  const res = cmpResults(); if (res.some(r => r.err)) return toast('Corrige las opciones con error antes de descargar');
+  const tbl = $('cmpTable').outerHTML.replace(/<span class="tip"[^>]*>\?<\/span>/g, '');
+  const svgs = OPTS.map((o, k) => `<div class="opt"><h3>${esc(o.optName)}</h3><p>${o.layers.map(l => `${esc(l.name)} ${fmt(l.xin, 3)}″`).join(' · ')} · ε ${fmt(o.eps, 2)} · viento ${fmt(o.V, 1)} MPH</p>${document.querySelector(`[data-svg="${k}"]`).outerHTML}</div>`).join('');
+  const today = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Comparación Transcal - ${esc(OPTS[0].title)}</title><style>
+:root{--yel:#c99a00;--cold:#1d6fb8;--hot:#d9480f;--muted:#5d5d58;--ink:#16171a;--ok:#1f7a4a;--bad:#b42318}
+body{font:13px/1.45 "Segoe UI",Arial,sans-serif;color:#16171a;margin:28px auto;max-width:900px;padding:0 20px}
+h1{font-size:24px;margin:0} h2{font-size:15px;margin:22px 0 8px;padding-bottom:4px;border-bottom:2px solid #ffc629;text-transform:uppercase;letter-spacing:.05em} h3{margin:0 0 2px;font-size:15px}
+.head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:4px solid #16171a;padding-bottom:10px} .head small{color:#5d5d58}
+table{border-collapse:collapse;width:100%} td,th{padding:5px 8px;border-bottom:1px solid #ddd;text-align:left} td.n,th.n,th.ohd{text-align:right} th.ohd{font-size:13px}
+td.win{color:#a07a00;font-weight:700} td.d{font-size:11px;color:#5d5d58;border-bottom:1px solid #ddd} td.d.good{color:var(--ok)} td.d.worse{color:var(--bad)}
+.pill{padding:1px 7px;border-radius:999px;border:1px solid #ccc;font-size:11px} .pill.ok{color:var(--ok)} .pill.warn{color:#a86b00} .pill.bad{color:var(--bad)}
+.verdict{background:#fff8e1;border-left:4px solid #ffc629;padding:8px 12px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px} .opt p{margin:0 0 4px;color:#5d5d58;font-size:11.5px}
+svg{width:100%;height:auto} svg text{fill:#5d5d58;font:11px Arial} svg .ttl{fill:#16171a;font-weight:600}
+.foot{margin-top:24px;color:#5d5d58;font-size:11px;border-top:1px solid #ddd;padding-top:8px}
+</style></head><body><div class="head"><div><small>Transcal · Comparación de opciones</small><h1>${esc(OPTS[0].title || 'Caso')}</h1></div><small>${today}</small></div>
+<p style="color:#5d5d58">${esc($('cmpInfo').textContent)}</p>
+<h2>Resumen</h2>${tbl}<p class="verdict">${esc($('cmpVerdict').textContent)}</p>
+<h2>Perfiles de temperatura</h2><div class="grid">${svgs}</div>
+<p class="foot">Calculado con Transcal (versión web), con las mismas fórmulas de Transcal V3.0. Gas natural ideal; para guardar como PDF usa Imprimir → Guardar como PDF.</p></body></html>`;
+  saveFile('Comparacion Transcal - ' + casName() + '.html', html);
+};
+
+// ---------- inicio ----------
+setSeg('fproc', 'multi');
+refreshDatalist(); { const i = MATS.findIndex(m => m.name.startsWith('INSWOOL')); selMat(i >= 0 ? i : 0); }
+['VSL-50 (G)', 'LANA MINERAL'].forEach(n => findMat(n) && CMP.push(findMat(n).name));
+loadCase(TC.parseCAS(DATA.cases.EJEMPLO1)); $('ex').value = 'EJEMPLO1'; renderLayers();
+fuelSync(); renderFuncs(); $('fds').value = 'AIRE'; $('fds').onchange(); renderConv();
+route();
+</script>
+</body>
+</html>
